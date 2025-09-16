@@ -13,8 +13,9 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from collections import namedtuple
-from typing import Dict, Tuple, List
+import configparser
+import os
+from typing import Tuple, List
 
 import ttkbootstrap as ttk
 
@@ -27,7 +28,7 @@ Mit besten Grüßen
 
 Kindergarten Tierkinder"""
 
-DEFAULT_GROUPS = ['Hasen:', 'Igel:', 'Rehkids:']
+DEFAULT_GROUPS = ['Wichtel:', 'Zwerge:', 'Wurzelkinder:']
 
 TITLE_FONT = ('Segoe UI', 14, 'bold')
 SUBTITLE_FONT = ('Segoe UI', 10)
@@ -54,7 +55,7 @@ class CardFrame(ttk.Frame):
                 subtitle_label.pack(anchor='w', pady=(2, 0))
 
         self.content = ttk.Frame(self)
-        self.content.pack(anchor='w', padx=20, pady=(0, 20))
+        self.content.pack(anchor='w', fill='x', expand='true', padx=20, pady=(0, 20))
 
 
 class EntryFrame(CardFrame):
@@ -65,16 +66,29 @@ class EntryFrame(CardFrame):
         self.content_frames = []
 
         for text, var in fields:
-            label = ttk.Label(self.content, text=text, font=('Segoe UI', 10, 'bold'))
-            entry = ttk.Entry(self.content, textvariable=var, *args, **kwargs)
-            self.content_frames.append((label, entry))
+            frame = ttk.Frame(self.content)
+            self.content_frames.append(frame)
 
-        self.pack_content_frames()
-
-    def pack_content_frames(self):
-        for label, entry in self.content_frames:
+            label = ttk.Label(frame, text=text, font=('Segoe UI', 10, 'bold'))
             label.pack(fill='x', pady=(0, 5))
-            entry.pack(anchor='w', pady=(0, 15))
+
+            entry = ttk.Entry(frame, textvariable=var, *args, **kwargs)
+            entry.pack(anchor='w')
+
+        self.place_content_frames()
+
+    def place_content_frames(self):
+        for i, frame in enumerate(self.content_frames):
+            frame.grid(row=i, column=0, pady=(0, 10))
+
+
+class OrderEntryFrame(EntryFrame):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def place_content_frames(self):
+        for i, frame in enumerate(self.content_frames):
+            frame.grid(row=0, column=i, padx=(0, 20))
 
 
 class OrderFrame(ttk.Frame):
@@ -87,9 +101,9 @@ class OrderFrame(ttk.Frame):
         # Register number validation callback
         val_num = self.register(validate_number)
 
-        entries_frame = EntryFrame(self, self.orders, title='Bestellmengen',
+        entries_frame = OrderEntryFrame(self, self.orders, title='Bestellmengen',
                                    subtitle='Details der Bestellung eingeben',
-                                   validate='all', validatecommand=(val_num, '%P'), width=4)
+                                   validate='all', validatecommand=(val_num, '%P'), width=5)
         entries_frame.pack(fill='x')
 
         preview_frame = CardFrame(self, title='Bestellungsvorschau',)
@@ -129,7 +143,7 @@ class TemplateFrame(ttk.Frame):
         recipient_info = [(l, ttk.StringVar()) for l in ['E-Mail Adresse:', 'Betreff:']]
         recipient_frame = EntryFrame(self, recipient_info,
                                      title='Empfänger', width=40)
-        recipient_frame.pack()
+        recipient_frame.pack(anchor='w')
 
         # Template edit
         template_card = CardFrame(self, title='Vorlage',
@@ -143,7 +157,7 @@ class TemplateFrame(ttk.Frame):
 
 
 class SettingsFrame(ttk.Frame):
-    def __init__(self, parent, settings):
+    def __init__(self, parent, config):
         super().__init__(parent)
 
         # Build scrollable frame
@@ -175,7 +189,7 @@ class SettingsFrame(ttk.Frame):
             ("E-Mail Adresse:", ""),
             ("Passwort:", "")
         ]]
-        smtp_frame = EntryFrame(scrollable_frame, smtp_info, title='SMTP Konfiguration')
+        smtp_frame = EntryFrame(scrollable_frame, smtp_info, title='SMTP Konfiguration', width=40)
         smtp_frame.pack()
 
     def save_settings(self):
@@ -189,6 +203,13 @@ class LunchOrderApp(ttk.Window):
         self.resizable = True
         self.minsize(600, 800)
 
+        # Configuration files
+        self.config_file = 'config.ini'
+        self.config = self.load_config()
+        self.template_file = 'template.txt'
+        with open(self.template_file, 'r') as f:
+            self.template = f.read()
+
         notebook = ttk.Notebook(self)
         notebook.pack(fill='both', expand=True, padx=10, pady=10)
 
@@ -200,6 +221,15 @@ class LunchOrderApp(ttk.Window):
 
         settings_frame = SettingsFrame(notebook, None)
         notebook.add(settings_frame, text='⚙️ Einstellungen')
+
+    def load_config(self):
+        try:
+            if os.path.isfile(self.config_file):
+                config = configparser.ConfigParser()
+                config.read(self.config_file)
+                return config
+        except Exception as e:
+            print(f"Error loading config file: {e}")
 
     def on_closing(self):
         print("closing...")
