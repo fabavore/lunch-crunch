@@ -49,6 +49,13 @@ class OrderMailer:
         except Exception as e:
             print(f"Error loading config file: {e}")
 
+    def save_config(self):
+        try:
+            with open(self.config_file, 'w') as f:
+                f.write(tomlkit.dumps(self.config))
+        except Exception as e:
+            print(f"Error saving config file: {e}")
+
     @property
     def groups(self):
         try:
@@ -66,9 +73,19 @@ class OrderMailer:
     @property
     def subject(self):
         try:
-            return self.config['receiver']['subject']
+            subject = self.config['receiver']['subject']
+            placeholder = self.config['order']['placeholder']
+            subject = subject.replace(placeholder, '{number}')
+            return subject.format(number=self.sum_order())
         except NonExistentKey:
             return ''
+
+    @property
+    def template(self):
+        try:
+            return self.config['order']['template']
+        except NonExistentKey:
+            return DEFAULT_TEMPLATE
 
     @property
     def body(self):
@@ -90,8 +107,7 @@ class OrderMailer:
             from_addr = self.config['sender']['email']
             password = self.config['sender']['password']
         except NonExistentKey:
-            print(f"Absenderkonfiguration nicht gefunden: {self.config_file}")
-            return
+            raise Exception(f"Absenderkonfiguration nicht gefunden: {self.config_file}")
 
         try:
             use_tls = self.config['sender']['use_tls']
@@ -99,8 +115,7 @@ class OrderMailer:
             use_tls = True
 
         if self.to_addr == '<EMAIL>':
-            print(f"Empfängeradresse nicht gefunden: {self.config_file}")
-            return
+            raise Exception(f"Empfängeradresse nicht gefunden: {self.config_file}")
 
         msg = MIMEMultipart()
         msg['From'] = from_addr
@@ -116,10 +131,8 @@ class OrderMailer:
 
                 server.login(from_addr, password)
                 server.sendmail(from_addr, self.to_addr, msg.as_string())
-
-            print(f"Bestellung abgeschickt um {datetime.now().strftime('%H:%M')} Uhr.")
         except Exception as e:
-            print(f"Bestellung konnte nicht abgeschickt werden: {e}")
+            raise e
 
 
 def place_order(mailer):
@@ -164,7 +177,11 @@ def main(config_file):
         print_preview(mailer)
         choice = input("Bestellung abschicken? [J/n] \n").lower()
         if choice in ['', 'j', 'ja']:
-            mailer.send_email()
+            try:
+                mailer.send_email()
+                print(f"Bestellung abgeschickt um {datetime.now().strftime('%H:%M')} Uhr.")
+            except Exception as e:
+                print(f"Bestellung konnte nicht abgeschickt werden: {e}")
             break
 
 

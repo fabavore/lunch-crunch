@@ -15,20 +15,14 @@
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import configparser
 import os
+from datetime import datetime
 from typing import Tuple, List
 
 import ttkbootstrap as ttk
+from ttkbootstrap.dialogs import Messagebox
 
+from order_mailer import OrderMailer
 
-DEFAULT_TEMPLATE = """Liebe:r Essenslieferant:in,
-
-für unseren Kindergarten möchten wir heute {anzahl} Portionen Essen bestellen.
-
-Mit besten Grüßen
-
-Kindergarten Tierkinder"""
-
-DEFAULT_GROUPS = ['Wichtel:', 'Zwerge:', 'Wurzelkinder:']
 
 TITLE_FONT = ('Segoe UI', 14, 'bold')
 SUBTITLE_FONT = ('Segoe UI', 10)
@@ -50,12 +44,12 @@ class CardFrame(ttk.Frame):
             title_label.pack(anchor='w')
 
             if subtitle:
-                subtitle_label = ttk.Label(title_frame, text=subtitle, font=SUBTITLE_FONT,
-                                           bootstyle='secondary')
+                subtitle_label = ttk.Label(title_frame, text=subtitle,
+                                           font=SUBTITLE_FONT, style='secondary')
                 subtitle_label.pack(anchor='w', pady=(2, 0))
 
         self.content = ttk.Frame(self)
-        self.content.pack(anchor='w', fill='x', expand='true', padx=20, pady=(0, 20))
+        self.content.pack(anchor='w', fill='x', expand=True, padx=20, pady=(0, 20))
 
 
 class EntryFrame(CardFrame):
@@ -69,7 +63,7 @@ class EntryFrame(CardFrame):
             frame = ttk.Frame(self.content)
             self.content_frames.append(frame)
 
-            label = ttk.Label(frame, text=text, font=('Segoe UI', 10, 'bold'))
+            label = ttk.Label(frame, text=f'{text}:', font=('Segoe UI', 10, 'bold'))
             label.pack(fill='x', pady=(0, 5))
 
             entry = ttk.Entry(frame, textvariable=var, *args, **kwargs)
@@ -92,73 +86,61 @@ class OrderEntryFrame(EntryFrame):
 
 
 class OrderFrame(ttk.Frame):
-    def __init__(self, parent, groups):
+    def __init__(self, parent, mailer: OrderMailer):
         super().__init__(parent)
 
-        self.template = DEFAULT_TEMPLATE
-        self.orders = [(g, ttk.IntVar()) for g in groups]
+        self.mailer = mailer
+        self.order = [(group, ttk.IntVar()) for group in mailer.groups]
 
         # Register number validation callback
         val_num = self.register(validate_number)
 
-        entries_frame = OrderEntryFrame(self, self.orders, title='Bestellmengen',
+        entries_frame = OrderEntryFrame(self, self.order, title='Bestellmengen',
                                    subtitle='Details der Bestellung eingeben',
                                    validate='all', validatecommand=(val_num, '%P'), width=5)
         entries_frame.pack(fill='x')
 
-        preview_frame = CardFrame(self, title='Bestellungsvorschau',)
+        preview_frame = CardFrame(self, title='Bestellungsvorschau')
         preview_frame.pack(fill='x')
-        # preview_frame.configure(bootstyle='danger')
 
         self.preview = ttk.Text(preview_frame.content, height=10, state='disabled')
         self.preview.pack(fill='x')
 
-        self.send_btn = ttk.Button(self, command=self.update_preview, text='Bestellung absenden')
+        self.send_btn = ttk.Button(self, command=self.send_email, text='Bestellung absenden')
         self.send_btn.pack()
 
         # Bind events for auto-updating the preview
-        for _, v in self.orders:
+        for _, v in self.order:
             v.trace_add('write', lambda var, index, mode: self.update_preview())
 
         self.update_preview()
 
     def update_preview(self):
         try:
-            total = sum([var.get() for _, var in self.orders])
+            self.mailer.order = {group: var.get() for group, var in self.order}
 
             self.preview.config(state='normal')
             self.preview.delete('1.0', 'end')
-            self.preview.insert('1.0', self.template.format(anzahl=total))
+            self.preview.insert('1.0', self.mailer.body)
             self.preview.config(state='disabled')
         except Exception as e:
             print(f"Preview error: {e}")
 
-
-class TemplateFrame(ttk.Frame):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.template = DEFAULT_TEMPLATE
-
-        # Recipient info
-        recipient_info = [(l, ttk.StringVar()) for l in ['E-Mail Adresse:', 'Betreff:']]
-        recipient_frame = EntryFrame(self, recipient_info,
-                                     title='Empfänger', width=40)
-        recipient_frame.pack(anchor='w')
-
-        # Template edit
-        template_card = CardFrame(self, title='Vorlage',
-                                  subtitle='E-Mail Vorlage bearbeiten')
-        template_card.pack(fill='x')
-
-        template_text = ttk.Text(template_card.content)
-        template_text.pack(fill='x')
-
-        template_text.insert('1.0', DEFAULT_TEMPLATE)
+    def send_email(self):
+        pos = (int(self.winfo_rootx() + 0.5 * self.winfo_width()) - 185,
+               int(self.winfo_rooty() + 0.33 * self.winfo_height()))
+        try:
+            self.mailer.send_email()
+            Messagebox.show_info(f'Bestellung abgeschickt um {datetime.now().strftime('%H:%M')} Uhr.', title='Bestätigung', position=pos)
+        except Exception as e:
+            Messagebox.show_error(f'Bestellung konnte nicht abgeschickt werden: {e}', title='Fehler', position=pos)
 
 
 class SettingsFrame(ttk.Frame):
-    def __init__(self, parent, config):
+    def __init__(self, parent, mailer: OrderMailer):
         super().__init__(parent)
+
+        self.mailer = mailer
 
         # Build scrollable frame
         canvas = ttk.Canvas(self)
@@ -182,6 +164,62 @@ class SettingsFrame(ttk.Frame):
         # Mouse wheel scrolling for Windows
         canvas.bind_all('<MouseWheel>', lambda e: canvas.yview_scroll(int(-1 * e.num), 'units'))
 
+        # Receiver info
+        [print(x) for x in mailer.config['receiver']]
+        self.receiver_info = [
+            ('E-Mail Adresse', ttk.StringVar(value=self.mailer.to_addr)),
+            ('Betreff', ttk.StringVar(value=self.mailer.subject)),
+        ]
+        receiver_frame = EntryFrame(scrollable_frame, self.receiver_info,
+                                     title='Empfänger', width=40)
+        receiver_frame.pack(anchor='w')
+
+        # Template edit
+        template_card = CardFrame(scrollable_frame, title='Vorlage',
+                                  subtitle='E-Mail Vorlage bearbeiten')
+        template_card.pack(fill='x', expand=True)
+
+        template_text = ttk.Text(template_card.content, height=10)
+        template_text.pack(fill='x', expand=True)
+
+        template_text.insert('1.0', self.mailer.template)
+
+        self.show_advanced = ttk.BooleanVar(value=False)
+        advanced_checkbox = ttk.Checkbutton(
+            scrollable_frame,
+            text='Erweiterte Einstellungen',
+            command=self.toggle_advanced,
+            variable=self.show_advanced,
+            style='Outline.Toolbutton'
+        )
+        advanced_checkbox.pack(pady=10)
+
+        self.advanced = AdvancedSettingsFrame(scrollable_frame)
+
+        self.save_btn = ttk.Button(scrollable_frame, command=self.save_settings, text='Speichern')
+
+        self.toggle_advanced()
+
+    def toggle_advanced(self):
+        if self.show_advanced.get():
+            self.save_btn.pack_forget()
+            self.advanced.pack()
+        else:
+            self.advanced.pack_forget()
+        self.save_btn.pack(pady=(0, 20))
+
+    def save_settings(self):
+        receiver_info = [var.get() for _, var in self.receiver_info]
+        self.mailer.config['receiver']['email'] = receiver_info[0]
+        self.mailer.config['receiver']['subject'] = receiver_info[1]
+
+        self.mailer.save_config()
+
+
+class AdvancedSettingsFrame(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
         # Sender config
         smtp_info = [(l, ttk.StringVar(value=d)) for l, d in [
             ("SMTP Server:", "smtp.gmail.com"),
@@ -189,47 +227,27 @@ class SettingsFrame(ttk.Frame):
             ("E-Mail Adresse:", ""),
             ("Passwort:", "")
         ]]
-        smtp_frame = EntryFrame(scrollable_frame, smtp_info, title='SMTP Konfiguration', width=40)
-        smtp_frame.pack()
-
-    def save_settings(self):
-        pass
+        smtp_frame = EntryFrame(self, smtp_info, title='SMTP Konfiguration', width=40)
+        smtp_frame.pack(fill='x')
 
 
 class LunchOrderApp(ttk.Window):
     def __init__(self):
         super().__init__(title='🍎 Mittagessenbestellung')
-        self.geometry('400x600')
+        self.geometry('750x700')
         self.resizable = True
-        self.minsize(600, 800)
+        self.minsize(750, 600)
 
-        # Configuration files
-        self.config_file = 'config.ini'
-        self.config = self.load_config()
-        self.template_file = 'template.txt'
-        with open(self.template_file, 'r') as f:
-            self.template = f.read()
+        mailer = OrderMailer('./config.toml')
 
         notebook = ttk.Notebook(self)
         notebook.pack(fill='both', expand=True, padx=10, pady=10)
 
-        order_frame = OrderFrame(notebook, groups=DEFAULT_GROUPS)
+        order_frame = OrderFrame(notebook, mailer=mailer)
         notebook.add(order_frame, text='🍴 Bestellung')
 
-        template_frame = TemplateFrame(notebook)
-        notebook.add(template_frame, text='Vorlage')
-
-        settings_frame = SettingsFrame(notebook, None)
+        settings_frame = SettingsFrame(notebook, mailer=mailer)
         notebook.add(settings_frame, text='⚙️ Einstellungen')
-
-    def load_config(self):
-        try:
-            if os.path.isfile(self.config_file):
-                config = configparser.ConfigParser()
-                config.read(self.config_file)
-                return config
-        except Exception as e:
-            print(f"Error loading config file: {e}")
 
     def on_closing(self):
         print("closing...")
