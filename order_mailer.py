@@ -13,7 +13,6 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import configparser
 import os
 import smtplib
 import sys
@@ -21,7 +20,10 @@ import textwrap
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from typing import Dict
 
+import tomlkit
+from tomlkit.exceptions import NonExistentKey
 
 DEFAULT_TEMPLATE = """Liebe:r Essenslieferant:in,
 
@@ -34,90 +36,86 @@ Kindergarten"""
 
 class OrderMailer:
     def __init__(self, config_file):
-        self.smtp_server = None
-        self.smtp_port = None
-        self.from_addr = None
-        self.password = None
-        self.use_tls = None
-        self.to_addr = None
-        self.subject = None
-        self.template = None
-        self.order = None
-
         self.config_file = config_file
         self.config = self.load_config()
-        self.load_settings()
+        self.order: Dict[str, int] = {}
 
     def load_config(self):
         try:
             if os.path.isfile(self.config_file):
-                config = configparser.ConfigParser()
-                config.read(self.config_file)
+                with open(self.config_file, 'r') as f:
+                    config = tomlkit.parse(f.read())
                 return config
         except Exception as e:
             print(f"Error loading config file: {e}")
-            
-    def load_settings(self):
-        if self.config:
-            # Sender configuration
-            self.smtp_server = self.config.get('sender', 'smtp_server', fallback=None)
-            self.smtp_port = self.config.getint('sender', 'smtp_port', fallback=587)
-            self.from_addr = self.config.get('sender', 'email', fallback=None)
-            self.password = self.config.get('sender', 'password', fallback=None)
-            self.use_tls = self.config.getboolean('sender', 'use_tls', fallback=True)
 
-            # Receiver configuration
-            self.to_addr = self.config.get('receiver', 'email', fallback=None)
-            self.subject = self.config.get('receiver', 'subject', fallback=None)
+    @property
+    def groups(self):
+        try:
+            return self.config['order']['groups']
+        except NonExistentKey:
+            return []
 
-            # Template configuration
-            template_file = self.config.get('template', 'template_file', fallback=None)
-            if template_file and os.path.isfile(template_file):
-                with open(template_file, 'r') as f:
-                    template = f.read()
-                self.template = template.replace(
-                    self.config.get('template', 'placeholder'),
-                    '{number}'
-                )
-            else:
-                self.template = DEFAULT_TEMPLATE
+    @property
+    def to_addr(self):
+        try:
+            return self.config['receiver']['email']
+        except NonExistentKey:
+            return '<EMAIL>'
 
-            # Order configuration
-            groups = self.config.get('groups', 'groups',
-                                     fallback='Gruppe 1, Gruppe 2, Gruppe 3')
-            self.order = {g.strip(): 0 for g in groups.split(',')}
+    @property
+    def subject(self):
+        try:
+            return self.config['receiver']['subject']
+        except NonExistentKey:
+            return ''
+
+    @property
+    def body(self):
+        try:
+            template = self.config['order']['template']
+            placeholder = self.config['order']['placeholder']
+            template = template.replace(placeholder, '{number}')
+        except NonExistentKey:
+            template = DEFAULT_TEMPLATE
+        return template.format(number=self.sum_order())
 
     def sum_order(self):
         return sum(self.order.values())
 
-    def email_body(self):
-        return self.template.format(number=self.sum_order())
-
     def send_email(self):
-        if not self.smtp_server or not self.smtp_port:
-            print("SMTP-Server nicht konfiguriert.")
+        try:
+            smtp_server = self.config['sender']['smtp_server']
+            smtp_port = self.config['sender']['smtp_port']
+            from_addr = self.config['sender']['email']
+            password = self.config['sender']['password']
+        except NonExistentKey:
+            print(f"Absenderkonfiguration nicht gefunden: {self.config_file}")
             return
-        if not self.from_addr or not self.password:
-            print("Absenderadresse und/oder Passwort nicht konfiguriert.")
-            return
-        if not self.to_addr:
-            print("Empfängeradresse nicht konfiguriert.")
+
+        try:
+            use_tls = self.config['sender']['use_tls']
+        except NonExistentKey:
+            use_tls = True
+
+        if self.to_addr == '<EMAIL>':
+            print(f"Empfängeradresse nicht gefunden: {self.config_file}")
             return
 
         msg = MIMEMultipart()
-        msg['From'] = self.from_addr
+        msg['From'] = from_addr
         msg['To'] = self.to_addr
         msg['Subject'] = self.subject
 
-        msg.attach(MIMEText(self.email_body(), 'plain'))
+        msg.attach(MIMEText(self.body, 'plain'))
 
         try:
-            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
-                if self.use_tls:
+            with smtplib.SMTP(smtp_server, int(smtp_port)) as server:
+                if use_tls:
                     server.starttls()
 
-                server.login(self.from_addr, self.password)
-                server.sendmail(self.from_addr, self.to_addr, msg.as_string())
+                server.login(from_addr, password)
+                server.sendmail(from_addr, self.to_addr, msg.as_string())
 
             print(f"Bestellung abgeschickt um {datetime.now().strftime('%H:%M')} Uhr.")
         except Exception as e:
@@ -128,10 +126,10 @@ def place_order(mailer):
     while True:
         print("Bitte Anzahl der benötigten Essen eingeben:")
         order = {}
-        for g in mailer.order:
+        for group in mailer.groups:
             while True:
                 try:
-                    order[g] = int(input(f'{g}: '))
+                    order[group] = int(input(f'{group}: '))
                     break
                 except ValueError:
                     print("Ungültige Eingabe. Bitte eine ganze Zahl eingeben.")
@@ -144,15 +142,15 @@ def place_order(mailer):
 
 def print_preview(mailer):
     print(f"Vorschau Bestellung:\n"
-          f"+{'-' * 78}+\n"
-          f"| Empfänger: {mailer.to_addr if mailer.to_addr else '': <66}|\n"
-          f"+{'-' * 78}+\n"
-          f"| Betreff:   {mailer.subject if mailer.subject else '': <66}|\n"
-          f"+{'-' * 78}+\n|{' ' * 78}|")
-    for line in mailer.email_body().splitlines():
+          f"  +{'-' * 78}+\n"
+          f"  | Empfänger: {mailer.to_addr: <66}|\n"
+          f"  +{'-' * 78}+\n"
+          f"  | Betreff: {mailer.subject: <68}|\n"
+          f"  +{'-' * 78}+\n  |{' ' * 78}|")
+    for line in mailer.body.splitlines():
         for part in textwrap.fill(line, 76).split('\n'):
-            print(f"| {part: <76} |")
-    print(f"|{' ' * 78}|\n+{'-' * 78}+")
+            print(f"  | {part: <76} |")
+    print(f"  |{' ' * 78}|\n  +{'-' * 78}+")
 
 
 def main(config_file):
@@ -171,5 +169,5 @@ def main(config_file):
 
 
 if __name__ == '__main__':
-    config_file = sys.argv[1] if len(sys.argv) > 1 else './config.ini'
+    config_file = sys.argv[1] if len(sys.argv) > 1 else './config.toml'
     main(config_file)

@@ -1,7 +1,0 @@
-Liebe:r Essenslieferant:in,
-
-für unseren Kindergarten möchten wir heute {Anzahl} Portionen Essen bestellen.
-
-Mit besten Grüßen
-
-Kindergarten
