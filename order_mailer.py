@@ -16,6 +16,7 @@
 import configparser
 import os
 import smtplib
+import sys
 import textwrap
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
@@ -154,11 +155,11 @@ def print_preview(mailer):
     print(f"|{' ' * 78}|\n+{'-' * 78}+")
 
 
-def main():
+def main(config_file):
     print("Wilkommen zur automatischen Mittagessen-Bestellung!\n"
           "===================================================\n")
 
-    mailer = OrderMailer('./config.ini')
+    mailer = OrderMailer(config_file)
 
     while True:
         place_order(mailer)
@@ -170,4 +171,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    config_file = sys.argv[1] if len(sys.argv) > 1 else './config.ini'
+    main(config_file)
