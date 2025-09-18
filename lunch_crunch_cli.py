@@ -14,9 +14,11 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import sys
+import os
 import textwrap
 from datetime import datetime
+
+from platformdirs import user_config_path
 
 from order_mailer import OrderMailer
 
@@ -33,7 +35,7 @@ def place_order(mailer):
                 except ValueError:
                     print("Ungültige Eingabe. Bitte eine ganze Zahl eingeben.")
         mailer.order = order
-        print(f"Gesamtanzahl: {mailer.sum_order()}")
+        print(f"Gesamtanzahl: {mailer.order_total}")
         choice = input("Alle Eingaben richtig? [J/n] \n").lower()
         if choice in ['', 'j', 'ja']:
             return
@@ -52,9 +54,16 @@ def print_preview(mailer):
     print(f"  |{' ' * 78}|\n  +{'-' * 78}+")
 
 
-def main(config_file):
+def main():
     print("Wilkommen zur automatischen Mittagessen-Bestellung!\n"
           "===================================================\n")
+
+    config_path = user_config_path(appname='mittagessen')
+    os.makedirs(config_path, exist_ok=True)
+    config_file = config_path / 'config.toml'
+
+    if input() != '':
+        print(f"Konfigurationsdatei: {config_file}")
 
     mailer = OrderMailer(config_file)
 
@@ -72,5 +81,4 @@ def main(config_file):
 
 
 if __name__ == '__main__':
-    config_file = sys.argv[1] if len(sys.argv) > 1 else './config.toml'
-    main(config_file)
+    main()

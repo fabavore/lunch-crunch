@@ -144,11 +144,11 @@ class OrderMailer:
 
     def send_email(self):
         if not self.smtp_server or not self.smtp_port:
-            raise Exception("SMTP Server und/oder Port nicht konfiguriert")
+            raise Exception(f"SMTP Server und/oder Port nicht konfiguriert: {self.config_file}")
         if not self.from_addr or not self.password:
-            raise Exception("Absenderadresse und/oder Passwort nicht konfiguriert")
+            raise Exception(f"Absenderadresse und/oder Passwort nicht konfiguriert: {self.config_file}")
         if not self.to_addr:
-            raise Exception("Bitte Empfängeradresse angeben")
+            raise Exception(f"Bitte Empfängeradresse angeben: {self.config_file}")
 
         msg = MIMEMultipart()
         msg['From'] = self.from_addr
