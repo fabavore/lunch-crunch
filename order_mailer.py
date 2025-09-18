@@ -21,7 +21,6 @@ from email.mime.text import MIMEText
 from typing import Dict
 
 import tomlkit
-from tomlkit.exceptions import NonExistentKey
 
 
 class OrderMailer:
@@ -78,10 +77,6 @@ class OrderMailer:
         try:
             with open(self.config_file, 'w') as f:
                 f.write(tomlkit.dumps(self.config))
-            template_file = (self.config_file.parent /
-                             self.config['template']['template_file'])
-            with open(template_file, 'w') as f:
-                f.write(self.template)
         except Exception as e:
             print(f"Error saving config file: {e}")
 
@@ -139,7 +134,7 @@ class OrderMailer:
 
     @property
     def body(self):
-        placeholder = self.config['order']['placeholder']
+        placeholder = self.config['template']['placeholder']
         template = self.template.replace(placeholder, '{number}')
         return template.format(number=self.order_total)
 

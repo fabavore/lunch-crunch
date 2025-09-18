@@ -14,6 +14,8 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+import os
+
 import ttkbootstrap as ttk
 from platformdirs import user_config_path
 
@@ -25,11 +27,12 @@ from settings_frame import SettingsFrame
 class LunchOrderApp(ttk.Window):
     def __init__(self):
         super().__init__(title='🍎 Mittagessenbestellung')
-        self.geometry('750x700')
+        self.geometry('750x650')
         self.resizable = True
-        self.minsize(750, 600)
+        self.minsize(750, 650)
 
         config_path = user_config_path(appname='mittagessen')
+        os.makedirs(config_path, exist_ok=True)
         config_file = config_path / 'config.toml'
 
         mailer = OrderMailer(config_file)

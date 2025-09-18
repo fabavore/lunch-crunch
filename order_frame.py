@@ -33,6 +33,46 @@ class OrderEntryFrame(EntryFrame):
             frame.grid(row=0, column=i, padx=(0, 20))
 
 
+class PreviewFrame(CardFrame):
+    def __init__(self, parent, title=None, subtitle=None):
+        super().__init__(parent, title, subtitle)
+
+        header = ttk.Frame(self.content)
+        header.pack(fill='x')
+
+        receiver_label = ttk.Label(header, text='Empfänger:')
+        receiver_label.grid(row=0, column=0, sticky='w', padx=(0, 10), pady=(0, 10))
+
+        self.receiver = ttk.Text(header, height=1, width=40, state='disabled')
+        self.receiver.grid(row=0, column=1, sticky='w', pady=(0, 10))
+
+        subject_label = ttk.Label(header, text='Betreff:')
+        subject_label.grid(row=1, column=0, sticky='w', padx=(0, 10), pady=(0, 10))
+
+        self.subject = ttk.Text(header, height=1, width=40, state='disabled')
+        self.subject.grid(row=1, column=1, sticky='w', pady=(0, 10))
+
+        self.body = ttk.Text(self.content, height=10, state='disabled')
+        self.body.pack(fill='x')
+
+    def update(self, receiver=None, subject=None, body=None):
+        if receiver:
+            self.receiver.config(state='normal')
+            self.receiver.delete('1.0', 'end')
+            self.receiver.insert('1.0', receiver)
+            self.receiver.config(state='disabled')
+        if subject:
+            self.subject.config(state='normal')
+            self.subject.delete('1.0', 'end')
+            self.subject.insert('1.0', subject)
+            self.subject.config(state='disabled')
+        if body:
+            self.body.config(state='normal')
+            self.body.delete('1.0', 'end')
+            self.body.insert('1.0', body)
+            self.body.config(state='disabled')
+
+
 class OrderFrame(ttk.Frame):
     def __init__(self, parent, mailer: OrderMailer):
         super().__init__(parent)
@@ -50,15 +90,8 @@ class OrderFrame(ttk.Frame):
         )
         order_frame.pack(fill='x')
 
-        preview_frame = CardFrame(self, title='Bestellungsvorschau')
-        preview_frame.pack(fill='x')
-
-        ttk.Label(preview_frame.content, text='Empfänger').grid(row=0, column=0, sticky='w')
-        self.preview_receiver = ttk.Text(preview_frame.content, height=1, width=20, state='disabled')
-        self.preview_receiver.grid(row=0, column=1, sticky='w')
-
-        self.preview = ttk.Text(preview_frame.content, height=10, state='disabled')
-        self.preview.grid(row=1, column=0, columnspan=2)
+        self.preview = PreviewFrame(self, title='Bestellungsübersicht')
+        self.preview.pack(fill='x')
 
         self.send_btn = ttk.Button(self, command=self.send_email, text='Bestellung absenden')
         self.send_btn.pack()
@@ -72,11 +105,7 @@ class OrderFrame(ttk.Frame):
     def update_preview(self):
         try:
             self.mailer.order = {group: var.get() for group, var in self.order}
-
-            self.preview.config(state='normal')
-            self.preview.delete('1.0', 'end')
-            self.preview.insert('1.0', self.mailer.body)
-            self.preview.config(state='disabled')
+            self.preview.update(body=self.mailer.body)
         except Exception as e:
             print(f"Preview error: {e}")
 
