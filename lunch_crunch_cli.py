@@ -87,6 +87,8 @@ def main():
     config_file = config_path / 'config.toml'
 
     mailer = OrderMailer(config_file)
+    mailer.save_config()
+    mailer.save_template()
 
     place_order(mailer)
     print_preview(mailer)
