@@ -29,6 +29,10 @@ class OrderMailer:
         self.config_file = config_file
         self.config = self.load_config()
 
+        self.template_file = (self.config_file.parent /
+                              self.config['template']['template_file'])
+        self.template = self.load_template()
+
         self.order: Dict[str, int] = {}
 
     def load_config(self):
@@ -52,7 +56,7 @@ class OrderMailer:
         sender = tomlkit.table()
         sender['server'] = ''
         sender['port'] = ''
-        sender['user'] = ''
+        sender['addr'] = ''
         sender['password'] = ''
         sender['use_tls'] = True
 
@@ -61,7 +65,7 @@ class OrderMailer:
         receiver['subject'] = ''
 
         template = tomlkit.table()
-        template['file'] = 'template.txt'
+        template['template_file'] = 'template.txt'
         template['placeholder'] = '{number}'
 
         config['sender'] = sender
@@ -74,83 +78,96 @@ class OrderMailer:
         try:
             with open(self.config_file, 'w') as f:
                 f.write(tomlkit.dumps(self.config))
+            template_file = (self.config_file.parent /
+                             self.config['template']['template_file'])
+            with open(template_file, 'w') as f:
+                f.write(self.template)
         except Exception as e:
             print(f"Error saving config file: {e}")
 
+    def load_template(self):
+        if os.path.isfile(self.template_file):
+            try:
+                with open(self.template_file, 'r') as f:
+                    return f.read()
+            except Exception as e:
+                print(f"Error loading template file: {e}")
+        else:
+            return ''
+
+    def save_template(self):
+        try:
+            with open(self.template_file, 'w') as f:
+                f.write(self.template)
+        except Exception as e:
+            print(f"Error saving template file: {e}")
+
     @property
     def groups(self):
-        try:
-            return self.config['groups']
-        except NonExistentKey:
-            return []
+        return self.config['groups']
+
+    @property
+    def smtp_server(self):
+        return self.config['sender']['server']
+
+    @property
+    def smtp_port(self):
+        return self.config['sender']['port']
+
+    @property
+    def from_addr(self):
+        return self.config['sender']['addr']
+
+    @property
+    def password(self):
+        return self.config['sender']['password']
+
+    @property
+    def use_tls(self):
+        return self.config['sender']['use_tls']
 
     @property
     def to_addr(self):
-        try:
-            return self.config['receiver']['addr']
-        except NonExistentKey:
-            return '<EMAIL>'
+        return self.config['receiver']['addr']
 
     @property
     def subject(self):
-        try:
-            subject = self.config['receiver']['subject']
-            placeholder = self.config['template']['placeholder']
-            subject = subject.replace(placeholder, '{number}')
-            return subject.format(number=self.sum_order())
-        except NonExistentKey:
-            return ''
-
-    @property
-    def template(self):
-        try:
-            return self.config['order']['template']
-        except NonExistentKey:
-            return ''
+        subject = self.config['receiver']['subject']
+        placeholder = self.config['template']['placeholder']
+        subject = subject.replace(placeholder, '{number}')
+        return subject.format(number=self.order_total)
 
     @property
     def body(self):
-        try:
-            template = self.config['order']['template']
-            placeholder = self.config['order']['placeholder']
-            template = template.replace(placeholder, '{number}')
-        except NonExistentKey:
-            template = ''
-        return template.format(number=self.sum_order())
+        placeholder = self.config['order']['placeholder']
+        template = self.template.replace(placeholder, '{number}')
+        return template.format(number=self.order_total)
 
-    def sum_order(self):
+    @property
+    def order_total(self):
         return sum(self.order.values())
 
     def send_email(self):
-        try:
-            smtp_server = self.config['sender']['server']
-            smtp_port = self.config['sender']['port']
-            from_addr = self.config['sender']['user']
-            password = self.config['sender']['password']
-        except NonExistentKey:
-            raise Exception(f"Absenderkonfiguration nicht gefunden: {self.config_file}")
-
-        try:
-            use_tls = self.config['sender']['use_tls']
-        except NonExistentKey:
-            use_tls = True
-
-        if self.to_addr == '<EMAIL>':
-            raise Exception(f"Empfängeradresse nicht gefunden: {self.config_file}")
+        if not self.smtp_server or not self.smtp_port:
+            raise Exception("SMTP Server und/oder Port nicht konfiguriert")
+        if not self.from_addr or not self.password:
+            raise Exception("Absenderadresse und/oder Passwort nicht konfiguriert")
+        if not self.to_addr:
+            raise Exception("Bitte Empfängeradresse angeben")
 
         msg = MIMEMultipart()
-        msg['From'] = from_addr
+        msg['From'] = self.from_addr
         msg['To'] = self.to_addr
         msg['Subject'] = self.subject
 
         msg.attach(MIMEText(self.body, 'plain'))
 
         try:
-            with smtplib.SMTP(smtp_server, int(smtp_port)) as server:
-                if use_tls:
+            with smtplib.SMTP(self.smtp_server, int(self.smtp_port)) as server:
+                if self.use_tls:
                     server.starttls()
 
-                server.login(from_addr, password)
-                server.sendmail(from_addr, self.to_addr, msg.as_string())
+                server.login(self.from_addr, self.password)
+                server.sendmail(self.from_addr, self.to_addr, msg.as_string())
         except Exception as e:
             raise e
