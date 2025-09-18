@@ -14,12 +14,12 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import configparser
-import os
+import os.path
 from datetime import datetime
 from typing import Tuple, List
 
 import ttkbootstrap as ttk
+from platformdirs import user_config_path
 from ttkbootstrap.dialogs import Messagebox
 
 from order_mailer import OrderMailer
@@ -239,7 +239,10 @@ class LunchOrderApp(ttk.Window):
         self.resizable = True
         self.minsize(750, 600)
 
-        mailer = OrderMailer('./config.toml')
+        config_path = user_config_path(appname='mittagessen')
+        config_file = config_path / 'config.toml'
+
+        mailer = OrderMailer(config_file)
 
         notebook = ttk.Notebook(self)
         notebook.pack(fill='both', expand=True, padx=10, pady=10)
@@ -249,6 +252,8 @@ class LunchOrderApp(ttk.Window):
 
         settings_frame = SettingsFrame(notebook, mailer=mailer)
         notebook.add(settings_frame, text='⚙️ Einstellungen')
+
+
 
     def on_closing(self):
         print("closing...")

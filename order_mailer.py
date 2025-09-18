@@ -28,16 +28,47 @@ class OrderMailer:
     def __init__(self, config_file):
         self.config_file = config_file
         self.config = self.load_config()
+
         self.order: Dict[str, int] = {}
 
     def load_config(self):
-        try:
-            if os.path.isfile(self.config_file):
+        if os.path.isfile(self.config_file):
+            try:
                 with open(self.config_file, 'r') as f:
                     config = tomlkit.parse(f.read())
                 return config
-        except Exception as e:
-            print(f"Error loading config file: {e}")
+            except Exception as e:
+                print(f"Error loading config file: {e}")
+        else:
+            return self.create_config()
+
+    @staticmethod
+    def create_config():
+        config = tomlkit.document()
+        config.add(tomlkit.comment('This is the config file for the LunchCrunch food ordering system'))
+        config.add(tomlkit.nl())
+        config['groups'] = []
+
+        sender = tomlkit.table()
+        sender['server'] = ''
+        sender['port'] = ''
+        sender['user'] = ''
+        sender['password'] = ''
+        sender['use_tls'] = True
+
+        receiver = tomlkit.table()
+        receiver['addr'] = ''
+        receiver['subject'] = ''
+
+        template = tomlkit.table()
+        template['file'] = 'template.txt'
+        template['placeholder'] = '{number}'
+
+        config['sender'] = sender
+        config['receiver'] = receiver
+        config['template'] = template
+
+        return config
 
     def save_config(self):
         try:
@@ -49,14 +80,14 @@ class OrderMailer:
     @property
     def groups(self):
         try:
-            return self.config['order']['groups']
+            return self.config['groups']
         except NonExistentKey:
             return []
 
     @property
     def to_addr(self):
         try:
-            return self.config['receiver']['email']
+            return self.config['receiver']['addr']
         except NonExistentKey:
             return '<EMAIL>'
 
@@ -64,7 +95,7 @@ class OrderMailer:
     def subject(self):
         try:
             subject = self.config['receiver']['subject']
-            placeholder = self.config['order']['placeholder']
+            placeholder = self.config['template']['placeholder']
             subject = subject.replace(placeholder, '{number}')
             return subject.format(number=self.sum_order())
         except NonExistentKey:
@@ -92,9 +123,9 @@ class OrderMailer:
 
     def send_email(self):
         try:
-            smtp_server = self.config['sender']['smtp_server']
-            smtp_port = self.config['sender']['smtp_port']
-            from_addr = self.config['sender']['email']
+            smtp_server = self.config['sender']['server']
+            smtp_port = self.config['sender']['port']
+            from_addr = self.config['sender']['user']
             password = self.config['sender']['password']
         except NonExistentKey:
             raise Exception(f"Absenderkonfiguration nicht gefunden: {self.config_file}")
