@@ -53,8 +53,8 @@ class OrderMailer:
         config['groups'] = []
 
         sender = tomlkit.table()
-        sender['server'] = ''
-        sender['port'] = ''
+        sender['server'] = 'mail.example.com'
+        sender['port'] = 587
         sender['addr'] = ''
         sender['password'] = ''
         sender['use_tls'] = True
@@ -65,7 +65,7 @@ class OrderMailer:
 
         template = tomlkit.table()
         template['template_file'] = 'template.txt'
-        template['placeholder'] = '{number}'
+        template['placeholder'] = '{Anzahl}'
 
         config['sender'] = sender
         config['receiver'] = receiver

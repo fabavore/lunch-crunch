@@ -78,17 +78,17 @@ class OrderFrame(ttk.Frame):
         super().__init__(parent)
 
         self.mailer = mailer
-        self.order = [(group, ttk.IntVar()) for group in mailer.groups]
+        self.order = [(group, ttk.IntVar()) for group in self.mailer.groups]
 
         # Register number validation callback
-        val_num = self.register(validate_number)
+        self.val_num = self.register(validate_number)
 
-        order_frame = OrderEntryFrame(
+        self.order_frame = OrderEntryFrame(
             self, self.order,
             title='Bestellmengen', subtitle='Details der Bestellung eingeben',
-            validate='all', validatecommand=(val_num, '%P'), width=5
+            validate='all', validatecommand=(self.val_num, '%P'), width=5
         )
-        order_frame.pack(fill='x')
+        self.order_frame.pack(fill='x')
 
         self.preview = PreviewFrame(self, title='Bestellungsübersicht')
         self.preview.pack(fill='x')
@@ -101,6 +101,26 @@ class OrderFrame(ttk.Frame):
             v.trace_add('write', lambda var, index, mode: self.update_preview())
 
         self.update_preview()
+
+    def update_groups(self):
+        self.order = [(group, ttk.IntVar()) for group in self.mailer.groups]
+
+        # Bind events for auto-updating the preview
+        for _, v in self.order:
+            v.trace_add('write', lambda var, index, mode: self.update_preview())
+
+        self.order_frame.pack_forget()
+        self.preview.pack_forget()
+        self.send_btn.pack_forget()
+
+        self.order_frame = OrderEntryFrame(
+            self, self.order,
+            title='Bestellmengen', subtitle='Details der Bestellung eingeben',
+            validate='all', validatecommand=(self.val_num, '%P'), width=5
+        )
+        self.order_frame.pack(fill='x')
+        self.preview.pack(fill='x')
+        self.send_btn.pack()
 
     def update_preview(self):
         try:

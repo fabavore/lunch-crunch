@@ -91,7 +91,36 @@ class SettingsFrame(ttk.Frame):
         )
         advanced_checkbox.pack(pady=10)
 
-        self.advanced = AdvancedSettingsFrame(scrolled_frame)
+        self.advanced = ttk.Frame(scrolled_frame)
+
+        # SMTP info
+        self.smtp_server_var = ttk.StringVar(value=self.mailer.smtp_server)
+        self.smtp_port_var = ttk.IntVar(value=self.mailer.smtp_port)
+        self.from_addr_var = ttk.StringVar(value=self.mailer.from_addr)
+        self.password_var = ttk.StringVar(value=self.mailer.password)
+        self.use_tls_var = ttk.BooleanVar(value=self.mailer.use_tls)
+        smtp_fields = [
+            ('SMTP Server', self.smtp_server_var),
+            ('SMTP Port', self.smtp_port_var),
+            ('E-Mail-Adresse', self.from_addr_var),
+            ('E-Mail Password', self.password_var)
+        ]
+        smtp_frame = EntryFrame(
+            self.advanced, smtp_fields, title='SMTP Konfiguration', width=40
+        )
+        use_tls = ttk.Checkbutton(smtp_frame.content, variable=self.use_tls_var,
+                                  text="TLS-Verschlüsselung aktivieren (empfohlen)")
+        smtp_frame.content_frames.append(use_tls)
+        smtp_frame.place_content_frames()
+        smtp_frame.pack(anchor='w')
+
+        # Groups
+        self.groups_var = ttk.StringVar(value=', '.join(self.mailer.groups))
+        groups_frame = EntryFrame(
+            self.advanced, [('Gruppennamen', self.groups_var)],
+            title='Verschiedenes', width=40
+        )
+        groups_frame.pack(anchor='w')
 
         self.save_btn = ttk.Button(scrolled_frame, command=self.save_settings, text='Speichern')
 
@@ -100,7 +129,7 @@ class SettingsFrame(ttk.Frame):
     def toggle_advanced(self):
         if self.show_advanced.get():
             self.save_btn.pack_forget()
-            self.advanced.pack()
+            self.advanced.pack(anchor='w')
         else:
             self.advanced.pack_forget()
         self.save_btn.pack(pady=(0, 20))
@@ -113,20 +142,12 @@ class SettingsFrame(ttk.Frame):
         self.order_frame.update_preview()
 
     def save_settings(self):
+        self.mailer.config['sender']['server'] = self.smtp_server_var.get()
+        self.mailer.config['sender']['port'] = self.smtp_port_var.get()
+        self.mailer.config['sender']['addr'] = self.from_addr_var.get()
+        self.mailer.config['sender']['password'] = self.password_var.get()
+        self.mailer.config['sender']['use_tls'] = self.use_tls_var.get()
+        self.mailer.config['groups'] = [g.strip() for g in self.groups_var.get().split(',')]
         self.mailer.save_config()
         self.mailer.save_template()
-
-
-class AdvancedSettingsFrame(ttk.Frame):
-    def __init__(self, parent):
-        super().__init__(parent)
-
-        # Sender config
-        smtp_info = [(l, ttk.StringVar(value=d)) for l, d in [
-            ("SMTP Server:", "smtp.gmail.com"),
-            ("SMTP Port:", "587"),
-            ("E-Mail Adresse:", ""),
-            ("Passwort:", "")
-        ]]
-        smtp_frame = EntryFrame(self, smtp_info, title='SMTP Konfiguration', width=40)
-        smtp_frame.pack(fill='x')
+        self.order_frame.update_groups()
