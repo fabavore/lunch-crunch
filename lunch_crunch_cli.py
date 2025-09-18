@@ -58,6 +58,9 @@ def print_preview(mailer):
 
 def open_file_with_default_app(filepath):
     system = platform.system().lower()
+    # Create file if not exists
+    with open(filepath, 'a'):
+        pass
     if 'windows' in system:
         subprocess.run(['start', filepath], shell=True)
     elif 'darwin' in system or 'osx' in system:
