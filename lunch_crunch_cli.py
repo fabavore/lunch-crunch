@@ -77,7 +77,8 @@ def main():
                 print(f"Bestellung abgeschickt um {datetime.now().strftime('%H:%M')} Uhr.")
             except Exception as e:
                 print(f"Bestellung konnte nicht abgeschickt werden: {e}")
-            break
+            if input():
+                break
 
 
 if __name__ == '__main__':
