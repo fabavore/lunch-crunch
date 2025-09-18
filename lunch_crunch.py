@@ -27,9 +27,9 @@ from settings_frame import SettingsFrame
 class LunchOrderApp(ttk.Window):
     def __init__(self):
         super().__init__(title='🍎 Mittagessenbestellung')
-        self.geometry('750x650')
+        self.geometry('750x700')
         self.resizable = True
-        self.minsize(750, 650)
+        self.minsize(750, 700)
 
         config_path = user_config_path(appname='mittagessen')
         os.makedirs(config_path, exist_ok=True)
@@ -43,7 +43,7 @@ class LunchOrderApp(ttk.Window):
         order_frame = OrderFrame(notebook, mailer=mailer)
         notebook.add(order_frame, text='🍴 Bestellung')
 
-        settings_frame = SettingsFrame(notebook, mailer=mailer)
+        settings_frame = SettingsFrame(notebook, mailer=mailer, order_frame=order_frame)
         notebook.add(settings_frame, text='⚙️ Einstellungen')
 
 

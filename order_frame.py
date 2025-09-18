@@ -105,7 +105,11 @@ class OrderFrame(ttk.Frame):
     def update_preview(self):
         try:
             self.mailer.order = {group: var.get() for group, var in self.order}
-            self.preview.update(body=self.mailer.body)
+            self.preview.update(
+                receiver=self.mailer.to_addr,
+                subject=self.mailer.subject,
+                body=self.mailer.body
+            )
         except Exception as e:
             print(f"Preview error: {e}")
 
