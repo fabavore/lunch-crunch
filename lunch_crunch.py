@@ -1,4 +1,5 @@
 #   LunchCrunch: A Python desktop app to manage food ordering
+#
 #   Copyright (C) 2025  Fabian Sauer
 #
 #   This program is free software: you can redistribute it and/or modify
