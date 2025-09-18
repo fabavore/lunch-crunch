@@ -15,6 +15,8 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
+import platform
+import subprocess
 import textwrap
 from datetime import datetime
 
@@ -54,6 +56,25 @@ def print_preview(mailer):
     print(f"  |{' ' * 78}|\n  +{'-' * 78}+")
 
 
+def open_file_with_default_app(filepath):
+    system = platform.system().lower()
+    if 'windows' in system:
+        subprocess.run(['start', filepath], shell=True)
+    elif 'darwin' in system or 'osx' in system:
+        subprocess.run(['open', filepath])
+    else:
+        subprocess.run(['xdg-open', filepath])
+
+
+def edit_config_files(mailer):
+    action = input("Einstellungen ändern? [J/n] ").lower()
+    if action in ['', 'j', 'ja']:
+        if input("Kofiguration ändern? [J/n] ") in ['', 'j', 'ja']:
+            open_file_with_default_app(mailer.config_file)
+        if input("Vorlage ändern? [J/n] ") in ['', 'j', 'ja']:
+            open_file_with_default_app(mailer.template_file)
+
+
 def main():
     print("Wilkommen zur automatischen Mittagessen-Bestellung!\n"
           "===================================================\n")
@@ -62,23 +83,21 @@ def main():
     os.makedirs(config_path, exist_ok=True)
     config_file = config_path / 'config.toml'
 
-    if input() != '':
-        print(f"Konfigurationsdatei: {config_file}")
-
     mailer = OrderMailer(config_file)
 
-    while True:
-        place_order(mailer)
-        print_preview(mailer)
-        choice = input("Bestellung abschicken? [J/n] \n").lower()
-        if choice in ['', 'j', 'ja']:
-            try:
-                mailer.send_email()
-                print(f"Bestellung abgeschickt um {datetime.now().strftime('%H:%M')} Uhr.")
-            except Exception as e:
-                print(f"Bestellung konnte nicht abgeschickt werden: {e}")
-            if input():
-                break
+    place_order(mailer)
+    print_preview(mailer)
+    choice = input("Bestellung abschicken? [J/n] \n").lower()
+    if choice in ['', 'j', 'ja']:
+        try:
+            mailer.send_email()
+            print(f"Bestellung abgeschickt um {datetime.now().strftime('%H:%M')} Uhr.\n")
+            input()
+        except Exception as e:
+            print(f"Bestellung konnte nicht abgeschickt werden: {e}\n")
+            edit_config_files(mailer)
+    else:
+        edit_config_files(mailer)
 
 
 if __name__ == '__main__':
