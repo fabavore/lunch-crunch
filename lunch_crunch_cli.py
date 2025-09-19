@@ -76,33 +76,37 @@ def edit_config_files(mailer):
             open_file_with_default_app(mailer.config_file)
         if input("Vorlage ändern? [J/n] ") in ['', 'j', 'ja']:
             open_file_with_default_app(mailer.template_file)
+        input()
 
 
 def main():
     print("Wilkommen zur automatischen Mittagessen-Bestellung!\n"
           "===================================================\n")
 
-    config_path = user_config_path(appname='mittagessen')
-    os.makedirs(config_path, exist_ok=True)
-    config_file = config_path / 'config.toml'
+    try:
+        config_path = user_config_path(appname='mittagessen')
+        os.makedirs(config_path, exist_ok=True)
+        config_file = config_path / 'config.toml'
 
-    mailer = OrderMailer(config_file)
-    mailer.save_config()
-    mailer.save_template()
+        mailer = OrderMailer(config_file)
+        mailer.save_config()
+        mailer.save_template()
 
-    place_order(mailer)
-    print_preview(mailer)
-    choice = input("Bestellung abschicken? [J/n] \n").lower()
-    if choice in ['', 'j', 'ja']:
-        try:
-            mailer.send_email()
-            print(f"Bestellung abgeschickt um {datetime.now().strftime('%H:%M')} Uhr.\n")
-            input()
-        except Exception as e:
-            print(f"Bestellung konnte nicht abgeschickt werden: {e}\n")
+        place_order(mailer)
+        print_preview(mailer)
+        choice = input("Bestellung abschicken? [J/n] \n").lower()
+        if choice in ['', 'j', 'ja']:
+            try:
+                mailer.send_email()
+                print(f"Bestellung abgeschickt um {datetime.now().strftime('%H:%M')} Uhr.\n")
+                input()
+            except Exception as e:
+                print(f"Bestellung konnte nicht abgeschickt werden: {e}\n")
+                edit_config_files(mailer)
+        else:
             edit_config_files(mailer)
-    else:
-        edit_config_files(mailer)
+    except Exception as e:
+        print(f"Fehler: {e}")
 
 
 if __name__ == '__main__':
