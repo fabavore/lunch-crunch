@@ -49,7 +49,13 @@ def order_panel():
                 with ui.row(align_items='center'):
                     with ui.card().classes('q-pa-sm'):
                         ui.label().bind_text_from(mailer, 'order_total', lambda total: f'Total: {total}')
-                    ui.button('Place Order', on_click=lambda: ui.notify('Order placed!'))
+                    def place_order():
+                        try:
+                            mailer.send_order()
+                            ui.notify('Order placed!')
+                        except Exception as e:
+                            ui.notify(f'Error: {e}', color='negative')
+                    ui.button('Place Order', on_click=place_order)
         with ui.card():
             with ui.list().props('separator').classes('w-full'):
                 ui.item_label('Order Summary').props('caption').classes('text-lg q-mb-md')
