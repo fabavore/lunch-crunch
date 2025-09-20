@@ -14,8 +14,6 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from tempfile import template
-
 import ttkbootstrap as ttk
 from ttkbootstrap.scrolled import ScrolledFrame
 
@@ -75,7 +73,7 @@ class SettingsFrame(ttk.Frame):
         self.template_text = ttk.Text(template_card.content, height=10)
         self.template_text.pack(fill='x', expand=True)
 
-        self.template_text.insert('1.0', self.mailer.template)
+        self.template_text.insert('1.0', self.mailer.config['template']['text'])
 
         self.receiver_var.trace('w', lambda var, index, mode: self.update_preview())
         self.subject_var.trace('w', lambda var, index, mode: self.update_preview())
@@ -96,7 +94,7 @@ class SettingsFrame(ttk.Frame):
         # SMTP info
         self.smtp_server_var = ttk.StringVar(value=self.mailer.smtp_server)
         self.smtp_port_var = ttk.IntVar(value=self.mailer.smtp_port)
-        self.from_addr_var = ttk.StringVar(value=self.mailer.from_addr)
+        self.from_addr_var = ttk.StringVar(value=self.mailer.username)
         self.password_var = ttk.StringVar(value=self.mailer.password)
         self.use_tls_var = ttk.BooleanVar(value=self.mailer.use_tls)
         smtp_fields = [
@@ -149,5 +147,4 @@ class SettingsFrame(ttk.Frame):
         self.mailer.config['sender']['use_tls'] = self.use_tls_var.get()
         self.mailer.config['groups'] = [g.strip() for g in self.groups_var.get().split(',')]
         self.mailer.save_config()
-        self.mailer.save_template()
         self.order_frame.update_groups()

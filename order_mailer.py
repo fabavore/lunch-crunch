@@ -28,16 +28,12 @@ class OrderMailer:
         self.config_file = config_file
         self.config = self.load_config()
 
-        self.template_file = (self.config_file.parent /
-                              self.config['template']['template_file'])
-        self.template = self.load_template()
-
-        self.order: Dict[str, int] = {}
+        self.order: Dict[str, int] = {g: 0 for g in self.config['groups']}
 
     def load_config(self):
         if os.path.isfile(self.config_file):
             try:
-                with open(self.config_file, 'r') as f:
+                with open(self.config_file, 'r', encoding='utf-8') as f:
                     config = tomlkit.parse(f.read())
                 return config
             except Exception as e:
@@ -55,7 +51,7 @@ class OrderMailer:
         sender = tomlkit.table()
         sender['server'] = 'mail.example.com'
         sender['port'] = 587
-        sender['addr'] = ''
+        sender['username'] = ''
         sender['password'] = ''
         sender['use_tls'] = True
 
@@ -64,8 +60,8 @@ class OrderMailer:
         receiver['subject'] = ''
 
         template = tomlkit.table()
-        template['template_file'] = 'template.txt'
-        template['placeholder'] = '{Anzahl}'
+        template['text'] = """Order template with {number} as placeholder for the number of items."""
+        template['placeholder'] = '{number}'
 
         config['sender'] = sender
         config['receiver'] = receiver
@@ -80,23 +76,6 @@ class OrderMailer:
         except Exception as e:
             print(f"Error saving config file: {e}")
 
-    def load_template(self):
-        if os.path.isfile(self.template_file):
-            try:
-                with open(self.template_file, 'r') as f:
-                    return f.read()
-            except Exception as e:
-                print(f"Error loading template file: {e}")
-        else:
-            return ''
-
-    def save_template(self):
-        try:
-            with open(self.template_file, 'w') as f:
-                f.write(self.template)
-        except Exception as e:
-            print(f"Error saving template file: {e}")
-
     @property
     def groups(self):
         return self.config['groups']
@@ -110,8 +89,8 @@ class OrderMailer:
         return self.config['sender']['port']
 
     @property
-    def from_addr(self):
-        return self.config['sender']['addr']
+    def username(self):
+        return self.config['sender']['username']
 
     @property
     def password(self):
@@ -129,14 +108,13 @@ class OrderMailer:
     def subject(self):
         subject = self.config['receiver']['subject']
         placeholder = self.config['template']['placeholder']
-        subject = subject.replace(placeholder, '{number}')
-        return subject.format(number=self.order_total)
+        return subject.replace(placeholder, f'{self.order_total}')
 
     @property
     def body(self):
+        template = self.config['template']['text']
         placeholder = self.config['template']['placeholder']
-        template = self.template.replace(placeholder, '{number}')
-        return template.format(number=self.order_total)
+        return template.replace(placeholder, f'{self.order_total}')
 
     @property
     def order_total(self):
@@ -145,24 +123,21 @@ class OrderMailer:
     def send_email(self):
         if not self.smtp_server or not self.smtp_port:
             raise Exception(f"SMTP Server und/oder Port nicht konfiguriert: {self.config_file}")
-        if not self.from_addr or not self.password:
+        if not self.username or not self.password:
             raise Exception(f"Absenderadresse und/oder Passwort nicht konfiguriert: {self.config_file}")
         if not self.to_addr:
-            raise Exception(f"Bitte Empfängeradresse angeben: {self.config_file}")
+            raise Exception(f"Bitte Empfaengeradresse angeben: {self.config_file}")
 
         msg = MIMEMultipart()
-        msg['From'] = self.from_addr
+        msg['From'] = self.username
         msg['To'] = self.to_addr
         msg['Subject'] = self.subject
 
         msg.attach(MIMEText(self.body, 'plain'))
 
-        try:
-            with smtplib.SMTP(self.smtp_server, int(self.smtp_port)) as server:
-                if self.use_tls:
-                    server.starttls()
+        with smtplib.SMTP(self.smtp_server, int(self.smtp_port)) as server:
+            if self.use_tls:
+                server.starttls()
 
-                server.login(self.from_addr, self.password)
-                server.sendmail(self.from_addr, self.to_addr, msg.as_string())
-        except Exception as e:
-            raise e
+            server.login(self.username, self.password)
+            server.sendmail(self.username, self.to_addr, msg.as_string())
