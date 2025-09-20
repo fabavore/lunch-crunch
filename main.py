@@ -16,7 +16,7 @@
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 
-from nicegui import ui
+from nicegui import app, ui
 from platformdirs import user_config_path
 
 from order_mailer import OrderMailer
@@ -30,6 +30,23 @@ os.makedirs(config_path, exist_ok=True)
 config_file = config_path / 'config.toml'
 
 mailer = OrderMailer(config_file)
+
+app.add_static_files('/assets', 'assets')
+
+ui.add_head_html('''
+<style>
+@font-face {
+    font-family: 'Antropos';
+    src: url('/assets/AntroposFreefont-BW2G.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+body {
+    background: url("/assets/Hintergrund_Startseite.png") no-repeat center center fixed;
+    background-size: cover;
+}
+</style>
+''')
 
 @ui.refreshable
 def order_panel():
@@ -99,7 +116,7 @@ def settings_panel():
                     .on_value_change(lambda e: order_panel.refresh()) \
                     .classes('w-full')
                 ui.input('Subject', placeholder='Order Subject') \
-                    .bind_value(mailer, 'subject') \
+                    .bind_value(mailer, 'subject_template') \
                     .on_value_change(lambda e: order_panel.refresh()) \
                     .classes('w-full')
                 ui.textarea('Order Template', placeholder='Order template with {number} as placeholder for the number of items.') \
@@ -131,9 +148,9 @@ def settings_panel():
                 ui.button('Save Settings', on_click=save_settings)
 
 with ui.tabs().classes('w-full') as tabs:
-    one = ui.tab('Order')
-    two = ui.tab('Settings')
-with ui.tab_panels(tabs, value=one).classes('w-full'):
+    one = ui.tab('Order', icon='restaurant').style('font-family: Antropos;')
+    two = ui.tab('Settings', icon='settings').style('font-family: Antropos;')
+with ui.tab_panels(tabs, value=one).classes('w-full').style('background: transparent;'):
     with ui.tab_panel(one):
         order_panel()
     with ui.tab_panel(two):

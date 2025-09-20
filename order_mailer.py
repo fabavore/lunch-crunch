@@ -38,7 +38,7 @@ class OrderMailer:
         self.use_tls = config.get('sender', {}).get('use_tls', True)
 
         self.to_addr = config.get('receiver', {}).get('addr', '')
-        self.subject = config.get('receiver', {}).get('subject', '')
+        self.subject_template = config.get('receiver', {}).get('subject', '')
 
         self.template = config.get('template', {}).get('text', '')
         self.placeholder = config.get('template', {}).get('placeholder', '{number}')
@@ -67,7 +67,7 @@ class OrderMailer:
 
         receiver = tomlkit.table()
         receiver['addr'] = self.to_addr
-        receiver['subject'] = self.subject
+        receiver['subject'] = self.subject_template
 
         template = tomlkit.table()
         template['text'] = self.template
@@ -89,6 +89,10 @@ class OrderMailer:
     @property
     def order_total(self):
         return sum(self.order.values())
+
+    @property
+    def subject(self):
+        return self.subject_template.replace(self.placeholder, f'{self.order_total}')
 
     @property
     def body(self):
