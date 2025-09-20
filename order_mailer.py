@@ -26,42 +26,52 @@ import tomlkit
 class OrderMailer:
     def __init__(self, config_file):
         self.config_file = config_file
-        self.config = self.load_config()
+        config = self.load_config()
 
-        self.order: Dict[str, int] = {g: 0 for g in self.config['groups']}
+        self.groups = config.get('groups', [])
+        self.order: Dict[str, int] = {group: 0 for group in self.groups}
+
+        self.smtp_server = config.get('sender', {}).get('server', '')
+        self.smtp_port = config.get('sender', {}).get('port', 587)
+        self.username = config.get('sender', {}).get('username', '')
+        self.password = config.get('sender', {}).get('password', '')
+        self.use_tls = config.get('sender', {}).get('use_tls', True)
+
+        self.to_addr = config.get('receiver', {}).get('addr', '')
+        self.subject = config.get('receiver', {}).get('subject', '')
+
+        self.template = config.get('template', {}).get('text', '')
+        self.placeholder = config.get('template', {}).get('placeholder', '{number}')
 
     def load_config(self):
-        if os.path.isfile(self.config_file):
-            try:
+        try:
+            if os.path.isfile(self.config_file):
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     config = tomlkit.parse(f.read())
                 return config
-            except Exception as e:
-                print(f"Error loading config file: {e}")
-        else:
-            return self.create_config()
+        except Exception as e:
+            print(f"Error loading config file: {e}")
 
-    @staticmethod
-    def create_config():
+    def create_config(self):
         config = tomlkit.document()
         config.add(tomlkit.comment('This is the config file for the LunchCrunch food ordering system'))
         config.add(tomlkit.nl())
-        config['groups'] = []
+        config['groups'] = self.groups
 
         sender = tomlkit.table()
-        sender['server'] = 'mail.example.com'
-        sender['port'] = 587
-        sender['username'] = ''
-        sender['password'] = ''
-        sender['use_tls'] = True
+        sender['server'] = self.smtp_server
+        sender['port'] = self.smtp_port
+        sender['username'] = self.username
+        sender['password'] = self.password
+        sender['use_tls'] = self.use_tls
 
         receiver = tomlkit.table()
-        receiver['addr'] = ''
-        receiver['subject'] = ''
+        receiver['addr'] = self.to_addr
+        receiver['subject'] = self.subject
 
         template = tomlkit.table()
-        template['text'] = """Order template with {number} as placeholder for the number of items."""
-        template['placeholder'] = '{number}'
+        template['text'] = self.template
+        template['placeholder'] = self.placeholder
 
         config['sender'] = sender
         config['receiver'] = receiver
@@ -71,54 +81,18 @@ class OrderMailer:
 
     def save_config(self):
         try:
-            with open(self.config_file, 'w') as f:
-                f.write(tomlkit.dumps(self.config))
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                f.write(tomlkit.dumps(self.create_config()))
         except Exception as e:
             print(f"Error saving config file: {e}")
 
     @property
-    def groups(self):
-        return self.config['groups']
-
-    @property
-    def smtp_server(self):
-        return self.config['sender']['server']
-
-    @property
-    def smtp_port(self):
-        return self.config['sender']['port']
-
-    @property
-    def username(self):
-        return self.config['sender']['username']
-
-    @property
-    def password(self):
-        return self.config['sender']['password']
-
-    @property
-    def use_tls(self):
-        return self.config['sender']['use_tls']
-
-    @property
-    def to_addr(self):
-        return self.config['receiver']['addr']
-
-    @property
-    def subject(self):
-        subject = self.config['receiver']['subject']
-        placeholder = self.config['template']['placeholder']
-        return subject.replace(placeholder, f'{self.order_total}')
+    def order_total(self):
+        return sum(self.order.values())
 
     @property
     def body(self):
-        template = self.config['template']['text']
-        placeholder = self.config['template']['placeholder']
-        return template.replace(placeholder, f'{self.order_total}')
-
-    @property
-    def order_total(self):
-        return sum(self.order.values())
+        return self.template.replace(self.placeholder, f'{self.order_total}')
 
     def send_email(self):
         if not self.smtp_server or not self.smtp_port:
