@@ -16,13 +16,13 @@
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 
-from nicegui import app, ui
+from nicegui import app, ui, events
 from platformdirs import user_config_path
 
 from order_mailer import OrderMailer
 
 
-NAME = 'LunchCrunch'
+NAME = 'Mittagessen'
 
 
 config_path = user_config_path(appname=NAME)
@@ -48,6 +48,11 @@ body {
 </style>
 ''')
 
+def split_values(e: events.ValueChangeEventArguments):
+    for value in e.value[:]:
+        e.value.remove(value)
+        e.value.extend(value.split(','))
+
 @ui.refreshable
 def order_panel():
     with ui.grid(columns='auto 1fr').classes('w-full'):
@@ -65,17 +70,17 @@ def order_panel():
             with ui.card_section():
                 with ui.row(align_items='center'):
                     with ui.card().classes('q-pa-sm'):
-                        ui.label().bind_text_from(mailer, 'order_total', lambda total: f'Total: {total}')
+                        ui.label().bind_text_from(mailer, 'order_total', lambda total: f'Summe: {total}')
                     def place_order():
                         try:
                             mailer.send_order()
-                            ui.notify('Order placed!')
+                            ui.notify('Bestellung gesendet!')
                         except Exception as e:
-                            ui.notify(f'Error: {e}', color='negative')
-                    ui.button('Place Order', on_click=place_order)
+                            ui.notify(f'Fehler beim Senden der Bestellung: {e}', type='negative')
+                    ui.button('Bestellung senden', on_click=place_order)
         with ui.card():
             with ui.list().props('separator').classes('w-full'):
-                ui.item_label('Order Summary').props('caption').classes('text-lg q-mb-md')
+                ui.item_label('Bestellungsübersicht').props('caption').classes('text-lg q-mb-md')
                 with ui.item():
                     with ui.item_section().props('side'):
                         ui.icon('mail')
@@ -89,47 +94,48 @@ def order_panel():
                 with ui.item():
                     ui.restructured_text().bind_content_from(mailer, 'body')
 
+@ui.refreshable
 def settings_panel():
     with ui.grid(columns='auto 1fr').classes('w-full'):
         with ui.card():
             with ui.list().classes('w-full'):
-                ui.item_label('SMTP Configuration').props('caption').classes('text-lg q-mb-md')
+                ui.item_label('SMTP-Konfiguration').props('caption').classes('text-lg q-mb-md')
                 ui.input('Server', placeholder='mail.example.com') \
                     .bind_value(mailer, 'smtp_server') \
                     .classes('w-full')
                 ui.number('Port', placeholder='587', min=0, precision=0, step=1, format='%d') \
                     .bind_value(mailer, 'smtp_port') \
                     .classes('w-full')
-                ui.input('User Name') \
+                ui.input('Benutzer') \
                     .bind_value(mailer, 'username') \
                     .classes('w-full')
-                ui.input('Password', password=True, password_toggle_button=True) \
+                ui.input('Passwort', password=True, password_toggle_button=True) \
                     .bind_value(mailer, 'password') \
                     .classes('w-full')
-            ui.switch('TLS Encryption (recommended)', value=True) \
+            ui.switch('TLS-Verschlüsselung (empfohlen)', value=True) \
                     .bind_value(mailer, 'use_tls')
         with ui.card().classes('w-full'):
             with ui.list().classes('w-full'):
-                ui.item_label('Order Configuration').props('caption').classes('text-lg q-mb-md')
-                ui.input('Receiver Address', placeholder='mail@example.com') \
+                ui.item_label('Bestellungskonfiguration').props('caption').classes('text-lg q-mb-md')
+                ui.input('Empfänger', placeholder='bestellung@lieferant.de') \
                     .bind_value(mailer, 'to_addr') \
                     .on_value_change(lambda e: order_panel.refresh()) \
                     .classes('w-full')
-                ui.input('Subject', placeholder='Order Subject') \
+                ui.input('Betreff', placeholder='Bestellung') \
                     .bind_value(mailer, 'subject_template') \
                     .on_value_change(lambda e: order_panel.refresh()) \
                     .classes('w-full')
-                ui.textarea('Order Template', placeholder='Order template with {number} as placeholder for the number of items.') \
+                ui.textarea('Bestellungsvorlage', placeholder='Bestellungsvorlage mit {Anzahl} als Platzhalter für die Anzahl der Bestellungen.') \
                     .bind_value(mailer, 'template') \
                     .on_value_change(lambda e: order_panel.refresh()) \
                     .classes('w-full')
-                ui.input('Placeholder', placeholder='{number}', value='{number}') \
+                ui.input('Platzhalter', placeholder='{Anzahl}', value='{Anzahl}') \
                     .bind_value(mailer, 'placeholder') \
                     .on_value_change(lambda e: order_panel.refresh()) \
                     .classes('w-full')
     with ui.card().classes('w-full'):
         with ui.column(align_items='center').classes('w-full'):
-            (ui.input_chips('Groups', new_value_mode='add-unique')
+            (ui.input_chips('Gruppen', new_value_mode='add-unique', on_change=split_values)
                 .bind_value(mailer, 'groups')
                 .on_value_change(lambda e: order_panel.refresh()).classes('w-full'))
             with ui.row():
@@ -137,19 +143,19 @@ def settings_panel():
                     mailer.__init__(config_file)
                     order_panel.refresh()
                     settings_panel.refresh()
-                    ui.notify('Settings reset!')
+                    ui.notify('Einstellungen zurückgesetzt!')
                 def save_settings():
                     mailer.save_config()
-                    ui.notify('Settings saved!')
+                    ui.notify('Einstellungen gespeichert!')
                     # TEST
                     with open(config_file, 'r', encoding='utf-8') as f:
                         print(f.read())
-                ui.button('Reset Settings', on_click=reset_settings)
-                ui.button('Save Settings', on_click=save_settings)
+                ui.button('Einstellungen zurücksetzen', on_click=reset_settings)
+                ui.button('Einstellungen speichern', on_click=save_settings)
 
 with ui.tabs().classes('w-full') as tabs:
-    one = ui.tab('Order', icon='restaurant').style('font-family: Antropos;')
-    two = ui.tab('Settings', icon='settings').style('font-family: Antropos;')
+    one = ui.tab('Bestellung', icon='restaurant').style('font-family: Antropos;')
+    two = ui.tab('Einstellungen', icon='settings').style('font-family: Antropos;')
 with ui.tab_panels(tabs, value=one).classes('w-full').style('background: transparent;'):
     with ui.tab_panel(one):
         order_panel()

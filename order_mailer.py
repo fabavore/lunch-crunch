@@ -41,16 +41,16 @@ class OrderMailer:
         self.subject_template = config.get('receiver', {}).get('subject', '')
 
         self.template = config.get('template', {}).get('text', '')
-        self.placeholder = config.get('template', {}).get('placeholder', '{number}')
+        self.placeholder = config.get('template', {}).get('placeholder', '{Anzahl}')
 
     def load_config(self):
         try:
-            if os.path.isfile(self.config_file):
-                with open(self.config_file, 'r', encoding='utf-8') as f:
-                    config = tomlkit.parse(f.read())
-                return config
+            with open(self.config_file, 'r', encoding='utf-8') as f:
+                config = tomlkit.parse(f.read())
+            return config
         except Exception as e:
             print(f"Error loading config file: {e}")
+            return {}
 
     def create_config(self):
         config = tomlkit.document()
