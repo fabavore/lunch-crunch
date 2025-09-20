@@ -21,9 +21,7 @@ from platformdirs import user_config_path
 
 from order_mailer import OrderMailer
 
-
 NAME = 'Mittagessen'
-
 
 config_path = user_config_path(appname=NAME)
 os.makedirs(config_path, exist_ok=True)
@@ -48,10 +46,14 @@ body {
 </style>
 ''')
 
-def split_values(e: events.ValueChangeEventArguments):
-    for value in e.value[:]:
-        e.value.remove(value)
-        e.value.extend(value.split(','))
+
+def place_order():
+    try:
+        mailer.place_order()
+        ui.notify('Bestellung gesendet!')
+    except Exception as e:
+        ui.notify(f'Fehler beim Senden der Bestellung: {e}', type='negative')
+
 
 @ui.refreshable
 def order_panel():
@@ -63,20 +65,14 @@ def order_panel():
                         with ui.item():
                             def on_change(e, group=group):
                                 mailer.order[group] = int(e.value) or 0
-                            ui.number(
-                                group, min=0, precision=0, step=1,
-                                format='%d', on_change=on_change
-                            )
+
+                            ui.number(group, min=0, precision=0, step=1,
+                                      format='%d', on_change=on_change)
             with ui.card_section():
                 with ui.row(align_items='center'):
                     with ui.card().classes('q-pa-sm'):
                         ui.label().bind_text_from(mailer, 'order_total', lambda total: f'Summe: {total}')
-                    def place_order():
-                        try:
-                            mailer.send_order()
-                            ui.notify('Bestellung gesendet!')
-                        except Exception as e:
-                            ui.notify(f'Fehler beim Senden der Bestellung: {e}', type='negative')
+
                     ui.button('Bestellung senden', on_click=place_order)
         with ui.card():
             with ui.list().props('separator').classes('w-full'):
@@ -94,74 +90,85 @@ def order_panel():
                 with ui.item():
                     ui.restructured_text().bind_content_from(mailer, 'body')
 
+
+def split_values(e: events.ValueChangeEventArguments):
+    for value in e.value[:]:
+        e.value.remove(value)
+        e.value.extend(value.split(','))
+
+
+def reset_settings():
+    mailer.__init__(config_file)
+    order_panel.refresh()
+    settings_panel.refresh()
+    ui.notify('Einstellungen zurückgesetzt!')
+
+
+def save_settings():
+    mailer.save_config()
+    ui.notify('Einstellungen gespeichert!')
+
+
 @ui.refreshable
 def settings_panel():
     with ui.grid(columns='auto 1fr').classes('w-full'):
         with ui.card():
             with ui.list().classes('w-full'):
                 ui.item_label('SMTP-Konfiguration').props('caption').classes('text-lg q-mb-md')
-                ui.input('Server', placeholder='mail.example.com') \
-                    .bind_value(mailer, 'smtp_server') \
-                    .classes('w-full')
-                ui.number('Port', placeholder='587', min=0, precision=0, step=1, format='%d') \
-                    .bind_value(mailer, 'smtp_port') \
-                    .classes('w-full')
-                ui.input('Benutzer') \
-                    .bind_value(mailer, 'username') \
-                    .classes('w-full')
-                ui.input('Passwort', password=True, password_toggle_button=True) \
-                    .bind_value(mailer, 'password') \
-                    .classes('w-full')
-            ui.switch('TLS-Verschlüsselung (empfohlen)', value=True) \
-                    .bind_value(mailer, 'use_tls')
+                (ui.input('Server', placeholder='mail.example.com')
+                 .bind_value(mailer, 'smtp_server')
+                 .classes('w-full'))
+                (ui.number('Port', placeholder='587', min=0, precision=0, step=1, format='%d')
+                 .bind_value(mailer, 'smtp_port')
+                 .classes('w-full'))
+                (ui.input('Benutzer')
+                 .bind_value(mailer, 'username')
+                 .classes('w-full'))
+                (ui.input('Passwort', password=True, password_toggle_button=True)
+                 .bind_value(mailer, 'password')
+                 .classes('w-full'))
+            ui.switch('TLS-Verschlüsselung (empfohlen)', value=True).bind_value(mailer, 'use_tls')
         with ui.card().classes('w-full'):
             with ui.list().classes('w-full'):
                 ui.item_label('Bestellungskonfiguration').props('caption').classes('text-lg q-mb-md')
-                ui.input('Empfänger', placeholder='bestellung@lieferant.de') \
-                    .bind_value(mailer, 'to_addr') \
-                    .on_value_change(lambda e: order_panel.refresh()) \
-                    .classes('w-full')
-                ui.input('Betreff', placeholder='Bestellung') \
-                    .bind_value(mailer, 'subject_template') \
-                    .on_value_change(lambda e: order_panel.refresh()) \
-                    .classes('w-full')
-                ui.textarea('Bestellungsvorlage', placeholder='Bestellungsvorlage mit {Anzahl} als Platzhalter für die Anzahl der Bestellungen.') \
-                    .bind_value(mailer, 'template') \
-                    .on_value_change(lambda e: order_panel.refresh()) \
-                    .classes('w-full')
-                ui.input('Platzhalter', placeholder='{Anzahl}', value='{Anzahl}') \
-                    .bind_value(mailer, 'placeholder') \
-                    .on_value_change(lambda e: order_panel.refresh()) \
-                    .classes('w-full')
+                (ui.input('Empfänger', placeholder='bestellung@lieferant.de')
+                 .bind_value(mailer, 'to_addr')
+                 .on_value_change(lambda e: order_panel.refresh())
+                 .classes('w-full'))
+                (ui.input('Betreff', placeholder='Bestellung')
+                 .bind_value(mailer, 'subject_template')
+                 .on_value_change(lambda e: order_panel.refresh())
+                 .classes('w-full'))
+                (ui.textarea('Bestellungsvorlage',
+                             placeholder='Bestellungsvorlage mit {Anzahl} als Platzhalter für die Anzahl der Bestellungen.')
+                 .bind_value(mailer, 'template')
+                 .on_value_change(lambda e: order_panel.refresh())
+                 .classes('w-full'))
+                (ui.input('Platzhalter', placeholder='{Anzahl}', value='{Anzahl}')
+                 .bind_value(mailer, 'placeholder')
+                 .on_value_change(lambda e: order_panel.refresh())
+                 .classes('w-full'))
     with ui.card().classes('w-full'):
         with ui.column(align_items='center').classes('w-full'):
             (ui.input_chips('Gruppen', new_value_mode='add-unique', on_change=split_values)
-                .bind_value(mailer, 'groups')
-                .on_value_change(lambda e: order_panel.refresh()).classes('w-full'))
+             .bind_value(mailer, 'groups')
+             .on_value_change(lambda e: order_panel.refresh()).classes('w-full'))
             with ui.row():
-                def reset_settings():
-                    mailer.__init__(config_file)
-                    order_panel.refresh()
-                    settings_panel.refresh()
-                    ui.notify('Einstellungen zurückgesetzt!')
-                def save_settings():
-                    mailer.save_config()
-                    ui.notify('Einstellungen gespeichert!')
-                    # TEST
-                    with open(config_file, 'r', encoding='utf-8') as f:
-                        print(f.read())
                 ui.button('Einstellungen zurücksetzen', on_click=reset_settings)
                 ui.button('Einstellungen speichern', on_click=save_settings)
 
-with ui.tabs().classes('w-full') as tabs:
-    one = ui.tab('Bestellung', icon='restaurant').style('font-family: Antropos;')
-    two = ui.tab('Einstellungen', icon='settings').style('font-family: Antropos;')
-with ui.tab_panels(tabs, value=one).classes('w-full').style('background: transparent;'):
-    with ui.tab_panel(one):
-        order_panel()
-    with ui.tab_panel(two):
-        settings_panel()
+
+def main_panel():
+    with ui.tabs().classes('w-full') as tabs:
+        one = ui.tab('Bestellung', icon='restaurant').style('font-family: Antropos;')
+        two = ui.tab('Einstellungen', icon='settings').style('font-family: Antropos;')
+    with ui.tab_panels(tabs, value=one).classes('w-full').style('background: transparent;'):
+        with ui.tab_panel(one):
+            order_panel()
+        with ui.tab_panel(two):
+            settings_panel()
 
 
 if __name__ in {"__main__", "__mp_main__"}:
+    main_panel()
     ui.run(title=NAME)

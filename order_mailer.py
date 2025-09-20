@@ -98,7 +98,7 @@ class OrderMailer:
     def body(self):
         return self.template.replace(self.placeholder, f'{self.order_total}')
 
-    def send_order(self):
+    def place_order(self):
         if not self.smtp_server or not self.smtp_port:
             raise Exception(f"SMTP Server und/oder Port nicht konfiguriert: {self.config_file}")
         if not self.username or not self.password:
