@@ -69,8 +69,8 @@ def order_panel():
                             ui.number(group, min=0, precision=0, step=1,
                                       format='%d', on_change=on_change)
             with ui.card_section():
-                with ui.row(align_items='center'):
-                    with ui.card().classes('q-pa-sm'):
+                with ui.column(align_items='center'):
+                    with ui.card(align_items='center').classes('q-pa-sm w-full'):
                         ui.label().bind_text_from(mailer, 'order_total', lambda total: f'Summe: {total}')
 
                     ui.button('Bestellung senden', on_click=place_order)
@@ -154,7 +154,7 @@ def settings_panel():
              .bind_value(mailer, 'groups')
              .on_value_change(lambda e: order_panel.refresh()).classes('w-full'))
             with ui.row():
-                ui.button('Einstellungen zurücksetzen', on_click=reset_settings)
+                ui.button('Zurücksetzen', on_click=reset_settings)
                 ui.button('Einstellungen speichern', on_click=save_settings)
 
 
@@ -171,4 +171,4 @@ def main_panel():
 
 if __name__ in {"__main__", "__mp_main__"}:
     main_panel()
-    ui.run(title=NAME)
+    ui.run(title=NAME, native=True, window_size=(800, 600))
