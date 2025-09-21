@@ -29,7 +29,7 @@ config_file = config_path / 'config.toml'
 
 mailer = OrderMailer(config_file)
 
-app.add_static_files('/assets', 'assets')
+app.add_static_files('/assets', os.path.join(os.path.dirname(__file__), 'assets'))
 
 ui.add_head_html('''
 <style>
