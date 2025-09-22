@@ -14,12 +14,17 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import os
+import logging
 import smtplib
 from email.message import EmailMessage
 from typing import Dict
 
 import tomlkit
+
+logger = logging.getLogger(__name__)
+
+class OrderMailerConfigError(Exception):
+    pass
 
 
 class OrderMailer:
@@ -46,9 +51,10 @@ class OrderMailer:
         try:
             with open(self.config_file, 'r', encoding='utf-8') as f:
                 config = tomlkit.parse(f.read())
+            logger.info(f'Config file loaded: {self.config_file}')
             return config
         except Exception as e:
-            print(f"Error loading config file: {e}")
+            logger.error(f'Could not load config file: {e}')
             return {}
 
     def create_config(self):
@@ -82,8 +88,9 @@ class OrderMailer:
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 f.write(tomlkit.dumps(self.create_config()))
+            logger.info(f'Config file saved: {self.config_file}')
         except Exception as e:
-            print(f"Error saving config file: {e}")
+            logger.error(f'Could not save config file: {e}')
 
     @property
     def order_total(self):
@@ -98,12 +105,16 @@ class OrderMailer:
         return self.template.replace(self.placeholder, f'{self.order_total}')
 
     def place_order(self):
-        if not self.smtp_server or not self.smtp_port:
-            raise Exception(f"SMTP Server und/oder Port nicht konfiguriert: {self.config_file}")
-        if not self.username or not self.password:
-            raise Exception(f"Absenderadresse und/oder Passwort nicht konfiguriert: {self.config_file}")
+        if not self.smtp_server:
+            raise OrderMailerConfigError('SMTP Server')
+        if not self.smtp_port:
+            raise OrderMailerConfigError('SMTP Port')
+        if not self.username:
+            raise OrderMailerConfigError('Absenderadresse')
+        if not self.password:
+            raise OrderMailerConfigError('Passwort')
         if not self.to_addr:
-            raise Exception(f"Bitte Empfaengeradresse angeben: {self.config_file}")
+            raise OrderMailerConfigError('Empfängeradresse')
 
         msg = EmailMessage()
         msg['From'] = self.username
@@ -112,6 +123,8 @@ class OrderMailer:
 
         msg.set_content(self.body)
 
+        # Cast smtp_port from tomlkit.items.Integer to int
+        self.smtp_port = int(self.smtp_port)
         with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
             if self.use_tls:
                 server.starttls()
