@@ -16,8 +16,7 @@
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from email.message import EmailMessage
 from typing import Dict
 
 import tomlkit
@@ -106,14 +105,14 @@ class OrderMailer:
         if not self.to_addr:
             raise Exception(f"Bitte Empfaengeradresse angeben: {self.config_file}")
 
-        msg = MIMEMultipart()
+        msg = EmailMessage()
         msg['From'] = self.username
         msg['To'] = self.to_addr
         msg['Subject'] = self.subject
 
-        msg.attach(MIMEText(self.body, 'plain'))
+        msg.set_content(self.body)
 
-        with smtplib.SMTP(self.smtp_server, int(self.smtp_port)) as server:
+        with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
             if self.use_tls:
                 server.starttls()
 

@@ -119,7 +119,7 @@ def settings_panel():
                  .bind_value(mailer, 'smtp_server')
                  .classes('w-full'))
                 (ui.number('Port', placeholder='587', min=0, precision=0, step=1, format='%d')
-                 .bind_value(mailer, 'smtp_port')
+                 .bind_value(mailer, 'smtp_port', forward=int)
                  .classes('w-full'))
                 (ui.input('Benutzer')
                  .bind_value(mailer, 'username')
