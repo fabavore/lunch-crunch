@@ -15,6 +15,7 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import logging
+import multiprocessing
 import os
 import sys
 
@@ -25,39 +26,38 @@ from order_mailer import OrderMailer, OrderMailerConfigError
 
 NAME = 'Mittagessen'
 
-config_path = user_config_path(appname=NAME, appauthor=False, ensure_exists=True)
-config_file = config_path / 'config.toml'
+CONFIG_PATH = user_config_path(appname=NAME, appauthor=False, ensure_exists=True)
+CONFIG_FILE = CONFIG_PATH / 'config.toml'
 
-log_path = user_log_path(appname=NAME, appauthor=False, ensure_exists=True)
-log_file = log_path / 'app.log'
+LOG_PATH = user_log_path(appname=NAME, appauthor=False, ensure_exists=True)
+LOG_FILE = LOG_PATH / 'app.log'
 
 logging.basicConfig(
-    filename=log_file,
+    filename=LOG_FILE,
     filemode='a',
     format='%(asctime)s - %(name)s - %(levelname)s: %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
-logger.info('Application started')
 
-mailer = OrderMailer(config_file)
 
-app.add_static_files('/assets', os.path.join(os.path.dirname(__file__), 'assets'))
+def setup():
+    app.add_static_files('/assets', os.path.join(os.path.dirname(__file__), 'assets'))
 
-ui.add_head_html('''
-<style>
-@font-face {
-    font-family: 'Antropos';
-    src: url('/assets/AntroposFreefont-BW2G.ttf') format('truetype');
-    font-weight: normal;
-    font-style: normal;
-}
-body {
-    background: url("/assets/Hintergrund_Startseite.png") no-repeat center center fixed;
-    background-size: cover;
-}
-</style>
-''')
+    ui.add_head_html('''
+    <style>
+    @font-face {
+        font-family: 'Antropos';
+        src: url('/assets/AntroposFreefont-BW2G.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+    }
+    body {
+        background: url("/assets/Hintergrund_Startseite.png") no-repeat center center fixed;
+        background-size: cover;
+    }
+    </style>
+    ''')
 
 
 def place_order():
@@ -115,7 +115,7 @@ def split_values(e: events.ValueChangeEventArguments):
 
 
 def reset_settings():
-    mailer.__init__(config_file)
+    mailer.__init__(CONFIG_FILE)
     ui.notify('Einstellungen zurückgesetzt!')
     order_panel.refresh()
     settings_panel.refresh()
@@ -187,7 +187,14 @@ def main_panel():
 
 
 if __name__ in {"__main__", "__mp_main__"}:
+    multiprocessing.freeze_support()
+
+    logger.info('Application started')
+    mailer = OrderMailer(CONFIG_FILE)
+
+    setup()
     main_panel()
+
     if sys.platform == 'win32':
         ui.run(title=NAME, native=True, window_size=(800, 600))
     else:
