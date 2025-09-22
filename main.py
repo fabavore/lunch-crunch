@@ -15,7 +15,6 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import logging
-import multiprocessing
 import os
 import sys
 
@@ -187,15 +186,16 @@ def main_panel():
 
 
 if __name__ in {"__main__", "__mp_main__"}:
-    multiprocessing.freeze_support()
-
     logger.info('Application started')
     mailer = OrderMailer(CONFIG_FILE)
 
     setup()
     main_panel()
 
+    # Add shutdown handling for NiceGUI
+    app.on_shutdown(lambda: logger.info('Application shutting down'))
+
     if sys.platform == 'win32':
-        ui.run(title=NAME, native=True, window_size=(800, 600))
+        ui.run(title=NAME, native=True, window_size=(800, 600), reload=False)
     else:
         ui.run(title=NAME)
