@@ -53,6 +53,9 @@ class OrderMailer:
                 config = tomlkit.parse(f.read())
             logger.info(f'Config file loaded: {self.config_file}')
             return config
+        except FileNotFoundError:
+            logger.info(f'Config file not found: {self.config_file}. Using defaults.')
+            return {}
         except Exception as e:
             logger.error(f'Could not load config file: {e}')
             return {}
@@ -121,7 +124,7 @@ class OrderMailer:
         msg['To'] = self.to_addr
         msg['Subject'] = self.subject
 
-        msg.set_content(self.body)
+        msg.set_content(self.body, charset='utf-8')
 
         # Cast smtp_port from tomlkit.items.Integer to int
         self.smtp_port = int(self.smtp_port)
@@ -130,4 +133,4 @@ class OrderMailer:
                 server.starttls()
 
             server.login(self.username, self.password)
-            server.sendmail(self.username, self.to_addr, msg.as_string())
+            server.send_message(msg)

@@ -23,6 +23,10 @@ from platformdirs import user_config_path, user_log_path
 
 from order_mailer import OrderMailer, OrderMailerConfigError
 
+# Force UTF-8 for PyInstaller executables
+if getattr(sys, 'frozen', False):
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
+
 NAME = 'Mittagessen'
 
 CONFIG_PATH = user_config_path(appname=NAME, appauthor=False, ensure_exists=True)
@@ -67,7 +71,7 @@ def place_order():
     except OrderMailerConfigError:
         ui.notify('Fehler: Ungültige Konfiguration. Bitte Einstellungen überprüfen.', type='negative')
     except Exception as e:
-        logger.error(f'Error placing order: {e}')
+        logger.error(f'Error placing order: {e}', exc_info=e)
         ui.notify(f'Fehler beim Senden der Bestellung: {e}', type='negative')
 
 
