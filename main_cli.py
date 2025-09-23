@@ -20,9 +20,17 @@ import subprocess
 import textwrap
 from datetime import datetime
 
-from platformdirs import user_config_path
+from platformdirs import user_config_path, user_log_path
 
 from order_mailer import OrderMailer
+
+NAME = 'Mittagessen'
+
+CONFIG_PATH = user_config_path(appname=NAME, appauthor=False, ensure_exists=True)
+CONFIG_FILE = CONFIG_PATH / 'config.toml'
+
+LOG_PATH = user_log_path(appname=NAME, appauthor=False, ensure_exists=True)
+LOG_FILE = LOG_PATH / f'{NAME}.log'
 
 
 def place_order(mailer):
@@ -69,14 +77,11 @@ def open_file_with_default_app(filepath):
         subprocess.run(['xdg-open', filepath])
 
 
-def edit_config_files(mailer):
+def edit_config_file(mailer):
     action = input("Einstellungen ändern? [J/n] ").lower()
     if action in ['', 'j', 'ja']:
-        if input("Kofiguration ändern? [J/n] ") in ['', 'j', 'ja']:
-            open_file_with_default_app(mailer.config_file)
-        if input("Vorlage ändern? [J/n] ") in ['', 'j', 'ja']:
-            open_file_with_default_app(mailer.template_file)
-        input()
+        open_file_with_default_app(CONFIG_FILE)
+    input()
 
 
 def main():
@@ -84,27 +89,22 @@ def main():
           "===================================================\n")
 
     try:
-        config_path = user_config_path(appname='mittagessen')
-        os.makedirs(config_path, exist_ok=True)
-        config_file = config_path / 'config.toml'
-
-        mailer = OrderMailer(config_file)
+        mailer = OrderMailer(CONFIG_FILE)
         mailer.save_config()
-        mailer.save_template()
 
         place_order(mailer)
         print_preview(mailer)
         choice = input("Bestellung abschicken? [J/n] \n").lower()
         if choice in ['', 'j', 'ja']:
             try:
-                mailer.send_email()
+                mailer.place_order()
                 print(f"Bestellung abgeschickt um {datetime.now().strftime('%H:%M')} Uhr.\n")
                 input()
             except Exception as e:
                 print(f"Bestellung konnte nicht abgeschickt werden: {e}\n")
-                edit_config_files(mailer)
+                edit_config_file(mailer)
         else:
-            edit_config_files(mailer)
+            edit_config_file(mailer)
     except Exception as e:
         print(f"Fehler: {e}")
 

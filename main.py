@@ -33,7 +33,7 @@ CONFIG_PATH = user_config_path(appname=NAME, appauthor=False, ensure_exists=True
 CONFIG_FILE = CONFIG_PATH / 'config.toml'
 
 LOG_PATH = user_log_path(appname=NAME, appauthor=False, ensure_exists=True)
-LOG_FILE = LOG_PATH / 'app.log'
+LOG_FILE = LOG_PATH / f'{NAME}.log'
 
 logging.basicConfig(
     filename=LOG_FILE,
