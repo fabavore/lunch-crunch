@@ -17,6 +17,7 @@
 import logging
 import smtplib
 from email.message import EmailMessage
+from email.header import Header
 from typing import Dict
 
 import tomlkit
@@ -120,9 +121,9 @@ class OrderMailer:
             raise OrderMailerConfigError('Empfängeradresse')
 
         msg = EmailMessage()
-        msg['From'] = self.username
-        msg['To'] = self.to_addr
-        msg['Subject'] = self.subject
+        msg['From'] = Header(self.username, 'utf-8')
+        msg['To'] = Header(self.to_addr, 'utf-8')
+        msg['Subject'] = Header(self.subject, 'utf-8')
 
         msg.set_content(self.body, charset='utf-8')
 
