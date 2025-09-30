@@ -121,9 +121,9 @@ class OrderMailer:
             raise OrderMailerConfigError('Empfängeradresse')
 
         msg = EmailMessage()
-        msg['From'] = Header(self.username, 'utf-8')
-        msg['To'] = Header(self.to_addr, 'utf-8')
-        msg['Subject'] = Header(self.subject, 'utf-8')
+        msg['From'] = Header(self.username, 'utf-8').encode()
+        msg['To'] = Header(self.to_addr, 'utf-8').encode()
+        msg['Subject'] = Header(self.subject, 'utf-8').encode()
 
         msg.set_content(self.body, charset='utf-8')
 
@@ -135,3 +135,4 @@ class OrderMailer:
 
             server.login(self.username, self.password)
             server.send_message(msg)
+
