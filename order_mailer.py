@@ -31,7 +31,7 @@ class OrderMailerConfigError(Exception):
 
 
 class OrderMailer:
-    def __init__(self, config_file):
+    def __init__(self, config_file, data_file):
         self.config_file = config_file
         config = self.load_config()
 
@@ -50,6 +50,8 @@ class OrderMailer:
         self.template = config.get('template', {}).get('text', '')
         self.placeholder_number = config.get('template', {}).get('placeholder_number', '{Anzahl}')
         self.placeholder_date = config.get('template', {}).get('placeholder_date', '{Datum}')
+
+        self.data_file = data_file
 
     def load_config(self):
         try:
@@ -155,3 +157,8 @@ class OrderMailer:
 
             server.login(self.username, self.password)
             server.send_message(msg)
+
+        with open(self.data_file, 'a', encoding='utf-8') as f:
+            f.write(f'{datetime.now().strftime('%d.%m.%Y %H:%M')}\t'
+                    f'{self.order_total}\t{self.subject}\t'
+                    f'{self.body.replace("\n", " | ")}\n')

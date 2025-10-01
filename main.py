@@ -17,9 +17,10 @@
 import logging
 import os
 import sys
+from datetime import datetime
 
 from nicegui import app, ui, events
-from platformdirs import user_config_path, user_log_path
+from platformdirs import user_config_path, user_log_path, user_data_path
 
 from order_mailer import OrderMailer, OrderMailerConfigError
 
@@ -34,6 +35,9 @@ CONFIG_FILE = CONFIG_PATH / 'config.toml'
 
 LOG_PATH = user_log_path(appname=NAME, appauthor=False, ensure_exists=True)
 LOG_FILE = LOG_PATH / f'{NAME}.log'
+
+DATA_PATH = user_data_path(appname=NAME, appauthor=False, ensure_exists=True)
+DATA_FILE = DATA_PATH / f'{NAME}_{datetime.now().strftime('%Y_%m')}.tsv'
 
 logging.basicConfig(
     filename=LOG_FILE,
@@ -195,7 +199,7 @@ def main_panel():
 
 if __name__ in {"__main__", "__mp_main__"}:
     logger.info('Application started')
-    mailer = OrderMailer(CONFIG_FILE)
+    mailer = OrderMailer(CONFIG_FILE, DATA_FILE)
 
     setup()
     main_panel()
