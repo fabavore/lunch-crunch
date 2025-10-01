@@ -16,6 +16,7 @@
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import logging
 import smtplib
+import socket
 from email.message import EmailMessage
 from email.header import Header
 from typing import Dict
@@ -129,10 +130,20 @@ class OrderMailer:
 
         # Cast smtp_port from tomlkit.items.Integer to int
         self.smtp_port = int(self.smtp_port)
-        with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+        # Set local hostname for EHLO/HELO command
+        # This avoids issues with FQDN containing non-ASCII characters
+        try:
+            local_hostname = socket.getfqdn().encode('ascii', 'ignore').decode('ascii')
+            if not local_hostname:
+                local_hostname = 'localhost'
+        except:
+            local_hostname = 'localhost'
+
+        logger.info(f'Connecting to SMTP server {self.smtp_server}:{self.smtp_port} '
+                    f'as {self.username} from {local_hostname} ...')
+        with smtplib.SMTP(self.smtp_server, self.smtp_port, local_hostname=local_hostname) as server:
             if self.use_tls:
                 server.starttls()
 
             server.login(self.username, self.password)
             server.send_message(msg)
-
