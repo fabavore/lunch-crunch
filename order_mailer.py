@@ -17,6 +17,7 @@
 import logging
 import smtplib
 import socket
+from datetime import datetime
 from email.message import EmailMessage
 from email.header import Header
 from typing import Dict
@@ -47,7 +48,8 @@ class OrderMailer:
         self.subject_template = config.get('receiver', {}).get('subject', '')
 
         self.template = config.get('template', {}).get('text', '')
-        self.placeholder = config.get('template', {}).get('placeholder', '{Anzahl}')
+        self.placeholder_number = config.get('template', {}).get('placeholder_number', '{Anzahl}')
+        self.placeholder_date = config.get('template', {}).get('placeholder_date', '{Datum}')
 
     def load_config(self):
         try:
@@ -81,7 +83,8 @@ class OrderMailer:
 
         template = tomlkit.table()
         template['text'] = self.template
-        template['placeholder'] = self.placeholder
+        template['placeholder_number'] = self.placeholder_number
+        template['placeholder_date'] = self.placeholder_date
 
         config['sender'] = sender
         config['receiver'] = receiver
@@ -103,11 +106,16 @@ class OrderMailer:
 
     @property
     def subject(self):
-        return self.subject_template.replace(self.placeholder, f'{self.order_total}')
+        return self.fill_placeholders(self.subject_template)
 
     @property
     def body(self):
-        return self.template.replace(self.placeholder, f'{self.order_total}')
+        return self.fill_placeholders(self.template)
+
+    def fill_placeholders(self, text: str) -> str:
+        return (text
+                .replace(self.placeholder_number, f'{self.order_total}')
+                .replace(self.placeholder_date, datetime.now().strftime('%d.%m.%Y')))
 
     def place_order(self):
         if not self.smtp_server:
