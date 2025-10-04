@@ -22,7 +22,7 @@ from datetime import datetime
 from nicegui import app, ui, events
 from platformdirs import user_config_path, user_log_path, user_data_path
 
-from order_mailer import OrderMailer, OrderMailerConfigError
+from order_mailer import OrderMailer, OrderMailerConfigError, VARS
 
 # Force UTF-8 for PyInstaller executables
 if getattr(sys, 'frozen', False):
@@ -95,7 +95,7 @@ def order_panel():
             with ui.card_section():
                 with ui.column(align_items='center'):
                     with ui.card(align_items='center').classes('q-pa-sm w-full'):
-                        ui.label().bind_text_from(mailer, 'order_total', lambda total: f'Summe: {total}')
+                        ui.label().bind_text_from(mailer, 'order_total', lambda total: f'SUMME: {total}')
 
                     ui.button('Bestellung senden', on_click=place_order, icon='send')
         with ui.card():
@@ -105,7 +105,7 @@ def order_panel():
                     with ui.item_section().props('side'):
                         ui.icon('mail')
                     with ui.item_section():
-                        ui.label().bind_text_from(mailer, 'to_addr')
+                        ui.label().bind_text_from(mailer, 'to_addr', lambda addr: ', '.join(addr) or '-/-')
                 with ui.item():
                     with ui.item_section().props('side'):
                         ui.icon('subject')
@@ -155,11 +155,11 @@ def settings_panel():
         with ui.card().classes('w-full'):
             with ui.list().classes('w-full'):
                 ui.item_label('Bestellungskonfiguration').props('caption').classes('text-lg q-mb-md')
-                (ui.input('Empfänger', placeholder='bestellung@lieferant.de')
+                (ui.input_chips('Empfänger', new_value_mode='add-unique', on_change=split_values)
                  .bind_value(mailer, 'to_addr')
                  .on_value_change(lambda e: order_panel.refresh())
                  .classes('w-full'))
-                (ui.input('Betreff', placeholder='Bestellung')
+                (ui.input('Betreff', placeholder='Bestellung {Datum}')
                  .bind_value(mailer, 'subject_template')
                  .on_value_change(lambda e: order_panel.refresh())
                  .classes('w-full'))
@@ -168,14 +168,7 @@ def settings_panel():
                  .bind_value(mailer, 'template')
                  .on_value_change(lambda e: order_panel.refresh())
                  .classes('w-full'))
-                (ui.input('Platzhalter Anzahl', placeholder='{Anzahl}', value='{Anzahl}')
-                 .bind_value(mailer, 'placeholder_number')
-                 .on_value_change(lambda e: order_panel.refresh())
-                 .classes('w-full'))
-                (ui.input('Platzhalter Datum', placeholder='{Datum}', value='{Datum}')
-                 .bind_value(mailer, 'placeholder_date')
-                 .on_value_change(lambda e: order_panel.refresh())
-                 .classes('w-full'))
+                ui.item_label(f'Verfügbare Platzhalter: {", ".join(VARS.values())}').props('caption')
     with ui.card().classes('w-full'):
         with ui.column(align_items='end').classes('w-full'):
             (ui.input_chips('Gruppen', new_value_mode='add-unique', on_change=split_values)

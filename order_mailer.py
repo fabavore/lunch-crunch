@@ -18,13 +18,16 @@ import logging
 import smtplib
 import socket
 from datetime import datetime
+from email.headerregistry import Address
 from email.message import EmailMessage
 from email.header import Header
-from typing import Dict
+from typing import Dict, List
 
 import tomlkit
 
 logger = logging.getLogger(__name__)
+
+VARS = {'number': '{Anzahl}', 'date': '{Datum}'}
 
 class OrderMailerConfigError(Exception):
     pass
@@ -44,12 +47,10 @@ class OrderMailer:
         self.password = config.get('sender', {}).get('password', '')
         self.use_tls = config.get('sender', {}).get('use_tls', True)
 
-        self.to_addr = config.get('receiver', {}).get('addr', '')
+        self.to_addr: List[str] = config.get('receiver', {}).get('addr', [])
         self.subject_template = config.get('receiver', {}).get('subject', '')
 
         self.template = config.get('template', {}).get('text', '')
-        self.placeholder_number = config.get('template', {}).get('placeholder_number', '{Anzahl}')
-        self.placeholder_date = config.get('template', {}).get('placeholder_date', '{Datum}')
 
         self.data_file = data_file
 
@@ -85,8 +86,6 @@ class OrderMailer:
 
         template = tomlkit.table()
         template['text'] = self.template
-        template['placeholder_number'] = self.placeholder_number
-        template['placeholder_date'] = self.placeholder_date
 
         config['sender'] = sender
         config['receiver'] = receiver
@@ -108,16 +107,16 @@ class OrderMailer:
 
     @property
     def subject(self):
-        return self.fill_placeholders(self.subject_template)
+        return self.fill_vars(self.subject_template)
 
     @property
     def body(self):
-        return self.fill_placeholders(self.template)
+        return self.fill_vars(self.template)
 
-    def fill_placeholders(self, text: str) -> str:
+    def fill_vars(self, text: str) -> str:
         return (text
-                .replace(self.placeholder_number, f'{self.order_total}')
-                .replace(self.placeholder_date, datetime.now().strftime('%d.%m.%Y')))
+                .replace(VARS['number'], f'{self.order_total}')
+                .replace(VARS['date'], datetime.now().strftime('%d.%m.%Y')))
 
     def place_order(self):
         if not self.smtp_server:
@@ -133,7 +132,7 @@ class OrderMailer:
 
         msg = EmailMessage()
         msg['From'] = Header(self.username, 'utf-8').encode()
-        msg['To'] = Header(self.to_addr, 'utf-8').encode()
+        msg['To'] = ', '.join(self.to_addr)
         msg['Subject'] = Header(self.subject, 'utf-8').encode()
 
         msg.set_content(self.body, charset='utf-8')
