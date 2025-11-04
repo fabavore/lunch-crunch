@@ -22,7 +22,7 @@ from datetime import datetime
 from nicegui import app, ui, events
 from platformdirs import user_config_path, user_log_path, user_data_path
 
-from order_mailer import OrderMailer, OrderMailerConfigError
+from order_mailer import OrderMailer, OrderMailerConfigError, DuplicateOrderError
 
 # Force UTF-8 for PyInstaller executables
 if getattr(sys, 'frozen', False):
@@ -74,6 +74,8 @@ def place_order():
         ui.notify('Bestellung gesendet!')
     except OrderMailerConfigError:
         ui.notify('Fehler: Ungültige Konfiguration. Bitte Einstellungen überprüfen.', type='negative')
+    except DuplicateOrderError:
+        ui.notify('Es wurde bereits eine Bestellung für heute gesendet.', type='warning')
     except Exception as e:
         logger.error(f'Error placing order: {e}', exc_info=e)
         ui.notify(f'Fehler beim Senden der Bestellung: {e}', type='negative')
@@ -88,14 +90,14 @@ def order_panel():
                     for group in mailer.groups:
                         with ui.item():
                             def on_change(e, group=group):
-                                mailer.order.counts[group] = int(e.value) or 0
+                                mailer.new_order.counts[group] = int(e.value) or 0
 
                             ui.number(group, min=0, precision=0, step=1,
                                       format='%d', on_change=on_change).style('font-family: Antropos;')
             with ui.card_section():
                 with ui.column(align_items='center'):
                     with ui.card(align_items='center').classes('q-pa-sm w-full'):
-                        ui.label().bind_text_from(mailer.order, 'total_count', lambda total: f'SUMME: {total}')
+                        ui.label().bind_text_from(mailer.new_order, 'total_count', lambda total: f'SUMME: {total}')
 
                     ui.button('Bestellung senden', on_click=place_order, icon='send')
         with ui.card():

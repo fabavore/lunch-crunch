@@ -14,17 +14,19 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+import ast
 import logging
 import smtplib
 import socket
 from dataclasses import dataclass
+from datetime import datetime
 from email.header import Header
 from email.message import EmailMessage
 from typing import List, Union, Callable
 
 import tomlkit
 
-from order import Order
+from order import Order, DATE_FORMAT
 
 logger = logging.getLogger(__name__)
 
@@ -59,13 +61,20 @@ class OrderMailerConfigError(Exception):
     pass
 
 
+class DuplicateOrderError(Exception):
+    pass
+
+
 class OrderMailer:
     def __init__(self, config_file, data_file):
         self.config_file = config_file
         config = self.load_config()
 
+        self.data_file = data_file
+        self.orders = self.load_orders()
+
         self.groups = config.get('groups', [])
-        self.order = Order({group: 0 for group in self.groups})
+        self.new_order = Order({group: 0 for group in self.groups})
 
         self.smtp_server = config.get('sender', {}).get('server', '')
         self.smtp_port = config.get('sender', {}).get('port', 587)
@@ -81,17 +90,15 @@ class OrderMailer:
         self.placeholders = PlaceholderList([
             Placeholder(
                 token='{Anzahl}',
-                replacement=lambda: f'{self.order.total_count}',
+                replacement=lambda: f'{self.new_order.total_count}',
                 description='Gesamtanzahl der bestellten Essen'
             ),
             Placeholder(
                 token='{Datum}',
-                replacement=lambda: self.order.datetime.strftime('%d.%m.%Y'),
+                replacement=lambda: self.new_order.datetime.strftime('%d.%m.%Y'),
                 description='Datum der Bestellung im Format TT.MM.JJJJ'
             )
         ])
-
-        self.data_file = data_file
 
     def load_config(self):
         try:
@@ -140,6 +147,34 @@ class OrderMailer:
         except Exception as e:
             logger.error(f'Could not save config file: {e}')
 
+    def load_orders(self):
+        try:
+            orders = []
+            with open(self.data_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    date_str, counts_str, _ = line.split(';')
+
+                    dt = datetime.strptime(date_str, DATE_FORMAT)
+                    counts = ast.literal_eval(counts_str)
+
+                    order = Order(counts=counts, datetime=dt)
+                    orders.append(order)
+                except Exception as e:
+                    logger.warning(f'Could not parse order line: {line}. Error: {e}')
+            logger.info(f'Loaded {len(orders)} orders from {self.data_file}')
+            return orders
+        except FileNotFoundError:
+            logger.info(f'Data file not found: {self.data_file}. Starting with empty order list.')
+            return []
+        except Exception as e:
+            logger.error(f'Could not load data file: {e}')
+            return []
+
     @property
     def subject(self):
         return self.placeholders.fill_all(self.subject_template)
@@ -159,6 +194,10 @@ class OrderMailer:
             raise OrderMailerConfigError('Passwort')
         if not self.to_addr:
             raise OrderMailerConfigError('Empfängeradresse')
+
+        self.new_order.now()
+        if any(o.datetime.date() == self.new_order.datetime.date() for o in self.orders):
+            raise DuplicateOrderError()
 
         msg = EmailMessage()
         msg['From'] = Header(self.username, 'utf-8').encode()
@@ -188,4 +227,6 @@ class OrderMailer:
             server.send_message(msg)
 
         with open(self.data_file, 'a', encoding='utf-8') as f:
-            f.write(str(self.order) + '\n')
+            f.write(str(self.new_order) + '\n')
+
+        self.orders.append(self.new_order)

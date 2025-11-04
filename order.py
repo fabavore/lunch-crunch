@@ -16,13 +16,11 @@
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from dataclasses import dataclass
 from datetime import datetime
-from functools import total_ordering
 from typing import Dict
 
 DATE_FORMAT = '%d.%m.%Y %H:%M'
 
 @dataclass
-@total_ordering
 class Order:
     """
     Represents a single food order with counts per group and a timestamp.
@@ -33,8 +31,6 @@ class Order:
             Defaults to the time of instantiation if not provided.
 
     Notes:
-        - Equality and ordering compare only the date portion (year/month/day)
-          of the `datetime` field, not the time. This models "same day" semantics.
         - The `total_count` property computes the total number of items across
           all groups.
     """
@@ -57,34 +53,10 @@ class Order:
         """
         self.datetime = datetime.now()
 
-    def __eq__(self, other):
-        """
-        Compare two orders for equality by their date (year, month, day).
-
-        Returns:
-            bool or NotImplemented: True if both are `Order` instances and their
-            dates are equal; NotImplemented for non-Order comparisons.
-        """
-        if not isinstance(other, Order):
-            return NotImplemented
-        return self.datetime.date() == other.datetime.date()
-
-    def __lt__(self, other):
-        """
-        Compare two orders by date for ordering.
-
-        Returns:
-            bool or NotImplemented: True if this order's date is earlier than
-            the other's date; NotImplemented for non-Order comparisons.
-        """
-        if not isinstance(other, Order):
-            return NotImplemented
-        return self.datetime.date() < other.datetime.date()
-
     def __str__(self):
         """
         Return a compact, human-readable string representation used for CSV storage.
 
-        Format: 'DD.MM.YYYY HH:MM,{counts},{total}'
+        Format: 'DD.MM.YYYY HH:MM;{counts};{total}'
         """
-        return f'{self.datetime.strftime(DATE_FORMAT)},{self.counts},{self.total_count}'
+        return f'{self.datetime.strftime(DATE_FORMAT)};{self.counts};{self.total_count}'
