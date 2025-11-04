@@ -17,17 +17,43 @@
 import logging
 import smtplib
 import socket
-from datetime import datetime
-from email.headerregistry import Address
-from email.message import EmailMessage
+from dataclasses import dataclass
 from email.header import Header
-from typing import Dict, List
+from email.message import EmailMessage
+from typing import List, Union, Callable
 
 import tomlkit
 
+from order import Order
+
 logger = logging.getLogger(__name__)
 
-VARS = {'number': '{Anzahl}', 'date': '{Datum}'}
+@dataclass
+class Placeholder:
+    token: str
+    replacement: Union[str, Callable[[], str]]
+    description: str
+
+    def __str__(self):
+        return f'"{self.token}": {self.description}'
+
+    def fill(self, text: str) -> str:
+        value = self.replacement() if callable(self.replacement) else self.replacement
+        return text.replace(self.token, value)
+
+
+@dataclass
+class PlaceholderList:
+    data: List[Placeholder]
+
+    def __str__(self):
+        return ', '.join(str(placeholder) for placeholder in self.data)
+
+    def fill_all(self, text: str) -> str:
+        for placeholder in self.data:
+            text = placeholder.fill(text)
+        return text
+
 
 class OrderMailerConfigError(Exception):
     pass
@@ -39,7 +65,7 @@ class OrderMailer:
         config = self.load_config()
 
         self.groups = config.get('groups', [])
-        self.order: Dict[str, int] = {group: 0 for group in self.groups}
+        self.order = Order({group: 0 for group in self.groups})
 
         self.smtp_server = config.get('sender', {}).get('server', '')
         self.smtp_port = config.get('sender', {}).get('port', 587)
@@ -51,6 +77,19 @@ class OrderMailer:
         self.subject_template = config.get('receiver', {}).get('subject', '')
 
         self.template = config.get('template', {}).get('text', '')
+
+        self.placeholders = PlaceholderList([
+            Placeholder(
+                token='{Anzahl}',
+                replacement=lambda: f'{self.order.total_count}',
+                description='Gesamtanzahl der bestellten Essen'
+            ),
+            Placeholder(
+                token='{Datum}',
+                replacement=lambda: self.order.datetime.strftime('%d.%m.%Y'),
+                description='Datum der Bestellung im Format TT.MM.JJJJ'
+            )
+        ])
 
         self.data_file = data_file
 
@@ -102,21 +141,12 @@ class OrderMailer:
             logger.error(f'Could not save config file: {e}')
 
     @property
-    def order_total(self):
-        return sum(self.order.values())
-
-    @property
     def subject(self):
-        return self.fill_vars(self.subject_template)
+        return self.placeholders.fill_all(self.subject_template)
 
     @property
     def body(self):
-        return self.fill_vars(self.template)
-
-    def fill_vars(self, text: str) -> str:
-        return (text
-                .replace(VARS['number'], f'{self.order_total}')
-                .replace(VARS['date'], datetime.now().strftime('%d.%m.%Y')))
+        return self.placeholders.fill_all(self.template)
 
     def place_order(self):
         if not self.smtp_server:
@@ -158,6 +188,4 @@ class OrderMailer:
             server.send_message(msg)
 
         with open(self.data_file, 'a', encoding='utf-8') as f:
-            f.write(f'{datetime.now().strftime('%d.%m.%Y %H:%M')}\t'
-                    f'{self.order_total}\t{self.subject}\t'
-                    f'{self.body.replace("\n", " | ")}\n')
+            f.write(str(self.order) + '\n')

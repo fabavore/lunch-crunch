@@ -22,7 +22,7 @@ from datetime import datetime
 from nicegui import app, ui, events
 from platformdirs import user_config_path, user_log_path, user_data_path
 
-from order_mailer import OrderMailer, OrderMailerConfigError, VARS
+from order_mailer import OrderMailer, OrderMailerConfigError
 
 # Force UTF-8 for PyInstaller executables
 if getattr(sys, 'frozen', False):
@@ -34,10 +34,10 @@ CONFIG_PATH = user_config_path(appname=NAME, appauthor=False, ensure_exists=True
 CONFIG_FILE = CONFIG_PATH / 'config.toml'
 
 LOG_PATH = user_log_path(appname=NAME, appauthor=False, ensure_exists=True)
-LOG_FILE = LOG_PATH / f'{NAME}.log'
+LOG_FILE = LOG_PATH / 'app.log'
 
 DATA_PATH = user_data_path(appname=NAME, appauthor=False, ensure_exists=True)
-DATA_FILE = DATA_PATH / f'{NAME}_{datetime.now().strftime('%Y_%m')}.tsv'
+DATA_FILE = DATA_PATH / 'orders.csv'
 
 logging.basicConfig(
     filename=LOG_FILE,
@@ -88,14 +88,14 @@ def order_panel():
                     for group in mailer.groups:
                         with ui.item():
                             def on_change(e, group=group):
-                                mailer.order[group] = int(e.value) or 0
+                                mailer.order.counts[group] = int(e.value) or 0
 
                             ui.number(group, min=0, precision=0, step=1,
                                       format='%d', on_change=on_change).style('font-family: Antropos;')
             with ui.card_section():
                 with ui.column(align_items='center'):
                     with ui.card(align_items='center').classes('q-pa-sm w-full'):
-                        ui.label().bind_text_from(mailer, 'order_total', lambda total: f'SUMME: {total}')
+                        ui.label().bind_text_from(mailer.order, 'total_count', lambda total: f'SUMME: {total}')
 
                     ui.button('Bestellung senden', on_click=place_order, icon='send')
         with ui.card():
@@ -168,7 +168,7 @@ def settings_panel():
                  .bind_value(mailer, 'template')
                  .on_value_change(lambda e: order_panel.refresh())
                  .classes('w-full'))
-                ui.item_label(f'Verfügbare Platzhalter: {", ".join(VARS.values())}').props('caption')
+                ui.item_label(f'Nutzbare Platzhalter: {str(mailer.placeholders)}').props('caption')
     with ui.card().classes('w-full'):
         with ui.column(align_items='end').classes('w-full'):
             (ui.input_chips('Gruppen', new_value_mode='add-unique', on_change=split_values)
