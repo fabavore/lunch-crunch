@@ -14,19 +14,18 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import ast
 import logging
 import smtplib
 import socket
 from dataclasses import dataclass
-from datetime import datetime
 from email.header import Header
 from email.message import EmailMessage
 from typing import List, Union, Callable
 
 import tomlkit
 
-from order import Order, DATE_FORMAT
+from order import Order
+from order_manager import OrderManager
 
 logger = logging.getLogger(__name__)
 
@@ -66,12 +65,11 @@ class DuplicateOrderError(Exception):
 
 
 class OrderMailer:
-    def __init__(self, config_file, data_file):
+    def __init__(self, config_file, order_manager: OrderManager):
         self.config_file = config_file
         config = self.load_config()
 
-        self.data_file = data_file
-        self.orders = self.load_orders()
+        self.order_manager = order_manager
 
         self.groups = config.get('groups', [])
         self.new_order = Order({group: 0 for group in self.groups})
@@ -147,33 +145,6 @@ class OrderMailer:
         except Exception as e:
             logger.error(f'Could not save config file: {e}')
 
-    def load_orders(self):
-        try:
-            orders = []
-            with open(self.data_file, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    date_str, counts_str, _ = line.split(';')
-
-                    dt = datetime.strptime(date_str, DATE_FORMAT)
-                    counts = ast.literal_eval(counts_str)
-
-                    order = Order(counts=counts, datetime=dt)
-                    orders.append(order)
-                except Exception as e:
-                    logger.warning(f'Could not parse order line: {line}. Error: {e}')
-            logger.info(f'Loaded {len(orders)} orders from {self.data_file}')
-            return orders
-        except FileNotFoundError:
-            logger.info(f'Data file not found: {self.data_file}. Starting with empty order list.')
-            return []
-        except Exception as e:
-            logger.error(f'Could not load data file: {e}')
-            return []
 
     @property
     def subject(self):
@@ -196,7 +167,7 @@ class OrderMailer:
             raise OrderMailerConfigError('Empfängeradresse')
 
         self.new_order.now()
-        if any(o.datetime.date() == self.new_order.datetime.date() for o in self.orders):
+        if any(o.datetime.date() == self.new_order.datetime.date() for o in self.order_manager.orders):
             raise DuplicateOrderError()
 
         msg = EmailMessage()
@@ -226,7 +197,4 @@ class OrderMailer:
             server.login(self.username, self.password)
             server.send_message(msg)
 
-        with open(self.data_file, 'a', encoding='utf-8') as f:
-            f.write(str(self.new_order) + '\n')
-
-        self.orders.append(self.new_order)
+        self.order_manager.add_order(self.new_order)

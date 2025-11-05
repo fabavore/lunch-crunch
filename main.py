@@ -22,7 +22,9 @@ from datetime import datetime
 from nicegui import app, ui, events
 from platformdirs import user_config_path, user_log_path, user_data_path
 
+from order_manager import OrderManager
 from order_mailer import OrderMailer, OrderMailerConfigError, DuplicateOrderError
+from history import history_panel
 
 # Force UTF-8 for PyInstaller executables
 if getattr(sys, 'frozen', False):
@@ -47,6 +49,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+logger.info('Application started')
+order_manager = OrderManager(DATA_FILE)
+mailer = OrderMailer(CONFIG_FILE, order_manager)
+
 
 def setup():
     app.add_static_files('/assets', os.path.join(os.path.dirname(__file__), 'assets'))
@@ -70,6 +76,7 @@ def setup():
 def place_order():
     try:
         mailer.place_order()
+        history_panel.refresh()
         logger.info('Order placed successfully')
         ui.notify('Bestellung gesendet!')
     except OrderMailerConfigError:
@@ -97,12 +104,12 @@ def order_panel():
             with ui.card_section():
                 with ui.column(align_items='center'):
                     with ui.card(align_items='center').classes('q-pa-sm w-full'):
-                        ui.label().bind_text_from(mailer.new_order, 'total_count', lambda total: f'SUMME: {total}')
+                        ui.label().bind_text_from(mailer.new_order, 'total_count', lambda total: f'SUMME: {total}').classes('text-primary text-weight-bold')
 
                     ui.button('Bestellung senden', on_click=place_order, icon='send')
         with ui.card():
             with ui.list().props('separator').classes('w-full'):
-                ui.item_label('Bestellungsübersicht').props('caption').classes('text-lg q-mb-md')
+                ui.item_label('Bestellungsvorschau').props('caption').classes('text-lg q-mb-md')
                 with ui.item():
                     with ui.item_section().props('side'):
                         ui.icon('mail')
@@ -114,7 +121,8 @@ def order_panel():
                     with ui.item_section():
                         ui.label().bind_text_from(mailer, 'subject')
                 with ui.item():
-                    ui.restructured_text().bind_content_from(mailer, 'body')
+                    with ui.item_section():
+                        ui.restructured_text().bind_content_from(mailer, 'body')
 
 
 def split_values(e: events.ValueChangeEventArguments):
@@ -183,26 +191,25 @@ def settings_panel():
 
 def main_panel():
     with ui.tabs().classes('w-full') as tabs:
-        one = ui.tab('Bestellung', icon='restaurant').style('font-family: Antropos;')
-        two = ui.tab('Einstellungen', icon='settings').style('font-family: Antropos;')
-    with ui.tab_panels(tabs, value=one).classes('w-full').style('background: transparent;'):
-        with ui.tab_panel(one):
+        tab1 = ui.tab('Bestellung', icon='restaurant').style('font-family: Antropos;')
+        tab2 = ui.tab('Historie', icon='history').style('font-family: Antropos;')
+        tab3 = ui.tab('Einstellungen', icon='settings').style('font-family: Antropos;')
+    with ui.tab_panels(tabs, value=tab2).classes('w-full').style('background: transparent;'):
+        with ui.tab_panel(tab1):
             order_panel()
-        with ui.tab_panel(two):
+        with ui.tab_panel(tab2):
+            history_panel(order_manager)
+        with ui.tab_panel(tab3):
             settings_panel()
 
 
-if __name__ in {"__main__", "__mp_main__"}:
-    logger.info('Application started')
-    mailer = OrderMailer(CONFIG_FILE, DATA_FILE)
+setup()
+main_panel()
 
-    setup()
-    main_panel()
+# Add shutdown handling for NiceGUI
+app.on_shutdown(lambda: logger.info('Application shutting down'))
 
-    # Add shutdown handling for NiceGUI
-    app.on_shutdown(lambda: logger.info('Application shutting down'))
-
-    if sys.platform == 'win32':
-        ui.run(title=NAME, native=True, window_size=(800, 600), reload=False)
-    else:
-        ui.run(title=NAME)
+if sys.platform == 'win32':
+    ui.run(title=NAME, native=True, window_size=(800, 600), reload=False)
+else:
+    ui.run(title=NAME)
