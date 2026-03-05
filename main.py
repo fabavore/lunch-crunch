@@ -21,17 +21,13 @@ from pathlib import Path
 
 from nicegui import app, ui
 
-from lunch_crunch.common import NAME, LOG_FILE
+from lunch_crunch.common import LOG_PATH
 import lunch_crunch.page_order    # noqa: F401 — registers route "/"
-import lunch_crunch.page_history  # noqa: F401 — registers route "/history"
 import lunch_crunch.page_settings # noqa: F401 — registers route "/settings"
 
-# Force UTF-8 for PyInstaller executables
-if getattr(sys, 'frozen', False):
-    os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 logging.basicConfig(
-    filename=LOG_FILE,
+    filename=LOG_PATH,
     filemode='a',
     format='%(asctime)s - %(name)s - %(levelname)s: %(message)s',
     level=logging.INFO,
@@ -59,7 +55,7 @@ if __name__ == '__main__':
     app.on_shutdown(lambda: logger.info('Application shutting down'))
     app.native.window_args['min_size'] = (1360, 768)
     ui.run(
-        title=NAME,
+        title='Mahlzeit',
         native=True,
         window_size=(1360, 768),
         reload=False,

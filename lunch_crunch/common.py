@@ -1,21 +1,54 @@
-"""Shared state and header for Lunch Crunch."""
+#   LunchCrunch: A Python desktop app to manage food ordering
+#
+#   Copyright (C) 2025  Fabian Sauer
+#
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU Affero General Public License as published
+#   by the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU Affero General Public License for more details.
+#
+#   You should have received a copy of the GNU Affero General Public License
+#   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from pathlib import Path
+"""Shared constants, helpers, and header for Lunch Crunch."""
+
+import calendar
+import tomllib
+from datetime import date
 
 from nicegui import ui
-from platformdirs import user_config_path, user_data_path, user_log_path
+from platformdirs import user_config_path, user_log_path
 
-from .order_manager import OrderManager
-from .order_mailer import OrderMailer
+from lunch_crunch.db import get_db
 
-NAME = 'Mittagessen'
 
-CONFIG_FILE = user_config_path(appname=NAME, appauthor=False, ensure_exists=True) / 'config.toml'
-LOG_FILE    = user_log_path(appname=NAME, appauthor=False, ensure_exists=True) / 'app.log'
-DATA_FILE   = user_data_path(appname=NAME, appauthor=False, ensure_exists=True) / 'orders.csv'
+_CONFIG_PATH = user_config_path("lunch-crunch", ensure_exists=True) / "config.toml"
+LOG_PATH     = user_log_path("lunch-crunch", ensure_exists=True) / "app.log"
 
-order_manager = OrderManager(DATA_FILE)
-mailer = OrderMailer(CONFIG_FILE, order_manager)
+def get_groups() -> list[str]:
+    try:
+        with open(_CONFIG_PATH, "rb") as f:
+            return tomllib.load(f).get("groups", [])
+    except FileNotFoundError:
+        return []
+
+
+def get_setting(key: str, default: str = "") -> str:
+    with get_db() as conn:
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+def save_setting(key: str, value: str) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value)
+        )
 
 
 def header() -> None:
@@ -24,7 +57,5 @@ def header() -> None:
         ui.space()
         ui.button('Bestellung',    on_click=lambda: ui.navigate.to('/'),
                   icon='restaurant').props('flat color=white').style('font-family: Antropos;')
-        ui.button('Historie',      on_click=lambda: ui.navigate.to('/history'),
-                  icon='history').props('flat color=white').style('font-family: Antropos;')
         ui.button('Einstellungen', on_click=lambda: ui.navigate.to('/settings'),
                   icon='settings').props('flat color=white').style('font-family: Antropos;')
