@@ -22,9 +22,9 @@ from datetime import datetime
 from nicegui import app, ui, events
 from platformdirs import user_config_path, user_log_path, user_data_path
 
-from order_manager import OrderManager
-from order_mailer import OrderMailer, OrderMailerConfigError, DuplicateOrderError
-from history import history_panel
+from lunch_crunch.order_manager import OrderManager
+from lunch_crunch.order_mailer import OrderMailer, OrderMailerConfigError, DuplicateOrderError
+from lunch_crunch.history import history_panel
 
 # Force UTF-8 for PyInstaller executables
 if getattr(sys, 'frozen', False):

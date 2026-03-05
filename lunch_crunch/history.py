@@ -1,4 +1,3 @@
-# python
 #   LunchCrunch: A Python desktop app to manage food ordering
 #
 #   Copyright (C) 2025  Fabian Sauer
@@ -18,7 +17,7 @@
 
 from nicegui import ui, events
 
-from order_manager import OrderManager
+from .order_manager import OrderManager
 
 
 @ui.refreshable

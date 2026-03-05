@@ -20,7 +20,7 @@ import logging
 from datetime import datetime
 from typing import List
 
-from order import DATE_FORMAT, Order
+from .order import DATE_FORMAT, Order
 
 logger = logging.getLogger(__name__)
 

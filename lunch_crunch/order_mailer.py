@@ -24,8 +24,8 @@ from typing import List, Union, Callable
 
 import tomlkit
 
-from order import Order
-from order_manager import OrderManager
+from .order import Order
+from .order_manager import OrderManager
 
 logger = logging.getLogger(__name__)
 
