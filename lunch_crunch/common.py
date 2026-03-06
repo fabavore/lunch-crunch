@@ -51,6 +51,23 @@ def save_setting(key: str, value: str) -> None:
         )
 
 
+def get_children(conn, active_after: date, active_before: date, group: str | None = None) -> list:
+    """Return children active during [active_after, active_before], optionally filtered by group name."""
+    if group:
+        return conn.execute(
+            "SELECT id, name, group_name FROM children "
+            "WHERE DATE(created_at) <= ? AND (archived_at IS NULL OR DATE(archived_at) >= ?) "
+            "AND group_name = ? ORDER BY name",
+            (active_before, active_after, group),
+        ).fetchall()
+    return conn.execute(
+        "SELECT id, name, group_name FROM children "
+        "WHERE DATE(created_at) <= ? AND (archived_at IS NULL OR DATE(archived_at) >= ?) "
+        "ORDER BY group_name, name",
+        (active_before, active_after),
+    ).fetchall()
+
+
 def header() -> None:
     with ui.header(elevated=True).classes('items-center px-4 gap-2 bg-pink-900/90'):
         ui.label('Mahlzeit').classes('text-white text-xl font-bold').style('font-family: Antropos;')

@@ -35,7 +35,6 @@ _DE_LOCALE = (
 _DATE_PROPS = f"mask='DD.MM.YYYY' :locale='{_DE_LOCALE}'"
 
 
-
 @ui.page('/settings')
 def settings_page() -> None:
     today = date.today()
@@ -61,22 +60,47 @@ def settings_page() -> None:
             tab_smtp     = ui.tab("E-Mail", icon="email").style('font-family: Antropos;')
             tab_log      = ui.tab("Bestellprotokoll", icon="receipt_long").style('font-family: Antropos;')
 
-        def fmt_date(iso: str) -> str:
-            return date.fromisoformat(iso).strftime("%d.%m.%Y")
+        def fmt_date(iso: date) -> str:
+            return iso.strftime("%d.%m.%Y")
 
         def parse_date(display: str) -> date:
             return datetime.strptime(display, "%d.%m.%Y").date()
 
+        def group_date_rows(rows) -> list:
+            """Group consecutive date rows (same note, gap at most 3 days for weekends) into
+            (from_str, to_str, note, [date_str, ...]) tuples."""
+            groups = []
+            if not rows:
+                return groups
+
+            row = rows[0]
+            dates = [date.fromisoformat(row["date"])]
+            note  = row["note"]
+
+            for row in rows[1:]:
+                dt = date.fromisoformat(row["date"])
+                nt = row["note"]
+                if ((dt - dates[-1]).days <= 1 or dt.weekday() == 0 and (dt - dates[-1]).days <= 3) and nt == note:
+                    dates.append(dt)
+                else:
+                    groups.append((dates[0], dates[-1], note, dates))
+                    dates = [dt]
+                    note  = nt
+
+            groups.append((dates[0], dates[-1], note, dates))
+            return groups
+
+
         with ui.tab_panels(tabs, value=tab_children).classes("w-full").style('background: transparent;'):
 
-            # -- Children --
+            # -- Children ------------------------------------------------------
             with ui.tab_panel(tab_children):
                 with ui.card().classes("w-full"):
-                    def refresh_list() -> None:
+                    def refresh_children() -> None:
                         child_list.clear()
                         with get_db() as conn:
                             rows = conn.execute(
-                                "SELECT id, name, group_name FROM children WHERE deleted_at IS NULL ORDER BY name"
+                                "SELECT id, name, group_name FROM children WHERE archived_at IS NULL ORDER BY name"
                             ).fetchall()
                         with child_list:
                             if not rows:
@@ -94,9 +118,9 @@ def settings_page() -> None:
                                                     open_edit_dialog(cid, n, g),
                                             ).props("flat round size=sm").tooltip("Gruppe ändern")
                                             ui.button(
-                                                icon="delete",
-                                                on_click=lambda cid=row["id"]: delete_child(cid),
-                                            ).props("flat round color=negative size=sm")
+                                                icon="archive",
+                                                on_click=lambda cid=row["id"]: archive_child(cid),
+                                            ).props("flat round size=sm").tooltip("Archivieren")
 
                     def add_child() -> None:
                         name  = name_input.value.strip()
@@ -114,16 +138,16 @@ def settings_page() -> None:
                         name_input.value   = ""
                         group_select.value = None
                         ui.notify(f"{name} hinzugefügt", type="positive")
-                        refresh_list()
+                        refresh_children()
 
-                    def delete_child(child_id: int) -> None:
+                    def archive_child(child_id: int) -> None:
                         with get_db() as conn:
                             conn.execute(
-                                "UPDATE children SET deleted_at = datetime('now') WHERE id = ?",
+                                "UPDATE children SET archived_at = datetime('now') WHERE id = ?",
                                 (child_id,),
                             )
                         ui.notify("Entfernt", type="info")
-                        refresh_list()
+                        refresh_children()
 
                     def open_edit_dialog(child_id: int, child_name: str, current_group: str) -> None:
                         with ui.dialog() as dialog, ui.card():
@@ -142,35 +166,147 @@ def settings_page() -> None:
                                         )
                                     dialog.close()
                                     ui.notify("Gruppe aktualisiert", type="positive")
-                                    refresh_list()
-                                ui.button("Speichern", on_click=save).props("color=primary")
+                                    refresh_children()
+                                ui.button("Speichern", icon="save", on_click=save).props("color=primary")
                         dialog.open()
 
                     ui.label("Kind hinzufügen").classes("font-medium")
-                    with ui.row(align_items="end"):
-                        name_input = ui.input("Name")
+                    with ui.row(align_items="end").classes("w-full"):
+                        name_input = ui.input("Name").classes("flex-1")
                         group_select = ui.select(get_groups(), label="Gruppe").classes("w-40")
-                        ui.button("Hinzufügen", on_click=add_child, icon="person_add")
+                        ui.button("Hinzufügen", icon="person_add", on_click=add_child)
 
                     ui.separator()
                     child_list = ui.column().classes("w-full gap-2")
-                    refresh_list()
+                    refresh_children()
 
-            # -- Closing days --
+            # -- Closing days --------------------------------------------------
+            def closing_days(
+                tbl:  str = "closing_days",
+                desc: str = "Schließtag",
+                help: str = "Schließtage des Kindergartens - an diesen Tagen keine Bestellungen."
+            ) -> None:
+                with ui.card().classes("w-full gap-3"):
+                    ui.label(help).classes("text-xs text-gray-500")
+                        
+                    cd_range_switch = ui.switch("Datumsbereich")
+
+                    with ui.row():
+                        with ui.input("Datum", value=fmt_date(today)) as cd_from_input:
+                            with ui.menu().props("no-parent-event") as cd_from_menu:
+                                with ui.date().props(_DATE_PROPS).bind_value(cd_from_input):
+                                    with ui.row().classes("justify-end"):
+                                        ui.button("Bestätigen", on_click=cd_from_menu.close).props("flat")
+                            with cd_from_input.add_slot("append"):
+                                ui.icon("edit_calendar").classes("cursor-pointer").on(
+                                    "click", cd_from_menu.open
+                                )
+
+                        with ui.input("Bis", value=fmt_date(today)) as cd_to_input:
+                            with ui.menu().props("no-parent-event") as cd_to_menu:
+                                with ui.date().props(_DATE_PROPS).bind_value(cd_to_input):
+                                    with ui.row().classes("justify-end"):
+                                        ui.button("Bestätigen", on_click=cd_to_menu.close).props("flat")
+                            with cd_to_input.add_slot("append"):
+                                ui.icon("edit_calendar").classes("cursor-pointer").on(
+                                    "click", cd_to_menu.open
+                                )
+                        cd_to_input.bind_visibility_from(cd_range_switch, "value")
+
+                    with ui.row(align_items="end").classes("w-full"):
+                        cd_note_input = ui.input("Beschreibung (optional)", placeholder="z.B. Sommer").classes("flex-1")
+
+                        def add_closing_days() -> None:
+                            from_str = cd_from_input.value
+                            if not from_str:
+                                ui.notify("Bitte zuerst ein Datum auswählen", type="warning")
+                                return
+                            if cd_range_switch.value:
+                                to_str = cd_to_input.value
+                                if not to_str:
+                                    ui.notify("Bitte ein Enddatum auswählen", type="warning")
+                                    return
+                                try:
+                                    from_date = parse_date(from_str)
+                                    to_date   = parse_date(to_str)
+                                except ValueError:
+                                    ui.notify("Ungültiges Datum", type="warning")
+                                    return
+                                if to_date < from_date:
+                                    ui.notify("Enddatum muss gleich oder nach Startdatum sein", type="warning")
+                                    return
+                            else:
+                                try:
+                                    from_date = to_date = parse_date(from_str)
+                                except ValueError:
+                                    ui.notify("Ungültiges Datum", type="warning")
+                                    return
+                            note = cd_note_input.value.strip()
+                            added = 0
+                            with get_db() as conn:
+                                cur = from_date
+                                while cur <= to_date:
+                                    if cur.weekday() < 5:
+                                        conn.execute(
+                                            f"INSERT OR IGNORE INTO {tbl} (date, note) VALUES (?, ?)",
+                                            (cur, note),
+                                        )
+                                        added += 1
+                                    cur += timedelta(days=1)
+                            cd_note_input.value = ""
+                            label = from_str if from_date == to_date else f"{from_str} bis {to_str}"
+                            ui.notify(f"{added} {desc}{'e' if added > 1 else ''} hinzugefügt: {label}", type="positive")
+                            refresh_closing_days()
+
+                        ui.button("Hinzufügen", icon="add", on_click=add_closing_days)
+
+                    ui.separator()
+                    closing_day_list = ui.column().classes("w-full gap-2")
+
+                    def delete_closing_days(dates: list) -> None:
+                        with get_db() as conn:
+                            conn.executemany(f"DELETE FROM {tbl} WHERE date = ?", [(d,) for d in dates])
+                        ui.notify(f"{len(dates)} {desc}{'e' if len(dates) > 1 else ''} entfernt", type="info")
+                        refresh_closing_days()
+
+                    def refresh_closing_days() -> None:
+                        closing_day_list.clear()
+                        with get_db() as conn:
+                            rows = conn.execute(
+                                f"SELECT date, note FROM {tbl} WHERE date >= ? ORDER BY date ASC",
+                                (today,),
+                            ).fetchall()
+                        groups = group_date_rows(rows)
+                        with closing_day_list:
+                            if not groups:
+                                ui.label(f"Keine zukünftigen {desc}e eingetragen.").classes("text-gray-500 text-sm")
+                            for frm, to, note, dates in groups:
+                                lbl = fmt_date(frm) if frm == to else f"{fmt_date(frm)} bis {fmt_date(to)}"
+                                with ui.card().classes("w-full"):
+                                    with ui.row(align_items="center").classes("w-full justify-between"):
+                                        with ui.column().classes("gap-0"):
+                                            ui.label(lbl).classes("font-semibold")
+                                            if note:
+                                                ui.label(note).classes("text-sm text-gray-500")
+                                        with ui.row().classes("gap-0"):
+                                            ui.button(
+                                                icon="delete",
+                                                on_click=lambda ds=dates: delete_closing_days(ds),
+                                            ).props("flat round color=negative size=sm").tooltip("Löschen")
+
+                    refresh_closing_days()
+
             with ui.tab_panel(tab_closing):
-                with ui.card().classes("w-full"):
-                    ui.label(
-                        "Schließtage des Kindergartens - an diesen Tagen keine Bestellungen."
-                    ).classes("text-xs text-gray-500")
+                closing_days()
 
-            # -- Holidays --
+            # -- Holidays ------------------------------------------------------
             with ui.tab_panel(tab_holidays):
-                with ui.card().classes("w-full"):
-                    ui.label(
-                        "Schulferien - Anwesenheit pro Kind auf der Seite Ferienabfrage konfigurierbar."
-                    ).classes("text-xs text-gray-500")
+                closing_days(
+                    "holidays", "Ferientag", 
+                    "Schulferien - Anwesenheit pro Kind auf der Seite Ferienabfrage konfigurierbar."
+                )
 
-            # -- Email / SMTP --
+            # -- Email / SMTP --------------------------------------------------
             with ui.tab_panel(tab_smtp):
                 with ui.card().classes("w-full gap-2"):
                     ui.label("SMTP-Server").classes("font-medium")
@@ -206,7 +342,7 @@ def settings_page() -> None:
 
                     ui.button("Speichern", icon="save", on_click=save_smtp).classes("self-end")
 
-            # -- Order log --
+            # -- Order log -----------------------------------------------------
             with ui.tab_panel(tab_log):
                 with ui.card().classes("w-full"):
                     ui.label("Noch keine Bestellungen gesendet.").classes("text-gray-500 text-sm")

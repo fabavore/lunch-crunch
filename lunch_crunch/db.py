@@ -82,7 +82,7 @@ def init_db() -> None:
                 group_name  TEXT    NOT NULL,
                 notes       TEXT    NOT NULL DEFAULT '',
                 created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
-                deleted_at  TEXT
+                archived_at TEXT
             );
 
             CREATE TABLE IF NOT EXISTS absence (
@@ -103,24 +103,24 @@ def init_db() -> None:
 
             -- closing_days: kindergarten closures, no orders possible
             CREATE TABLE IF NOT EXISTS closing_days (
-                date  TEXT PRIMARY KEY,
-                note  TEXT NOT NULL DEFAULT ''
+                date    TEXT PRIMARY KEY,
+                note    TEXT NOT NULL DEFAULT ''
             );
 
             -- holidays: school holiday dates, per-child absence configurable
             CREATE TABLE IF NOT EXISTS holidays (
-                date  TEXT PRIMARY KEY,
-                note  TEXT NOT NULL DEFAULT ''
+                date    TEXT PRIMARY KEY,
+                note    TEXT NOT NULL DEFAULT ''
             );
 
             CREATE TABLE IF NOT EXISTS order_log (
-                date     TEXT PRIMARY KEY,
-                sent_at  TEXT NOT NULL DEFAULT (datetime('now')),
-                count    INTEGER NOT NULL
+                date    TEXT PRIMARY KEY,
+                sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+                count   INTEGER NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS settings (
-                key   TEXT PRIMARY KEY,
-                value TEXT NOT NULL DEFAULT ''
+                key     TEXT PRIMARY KEY,
+                value   TEXT NOT NULL DEFAULT ''
             );
         """)

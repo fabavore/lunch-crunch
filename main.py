@@ -17,10 +17,12 @@
 import logging
 import os
 import sys
+import locale
 from pathlib import Path
 
 from nicegui import app, ui
 
+from lunch_crunch.db import init_db
 from lunch_crunch.common import LOG_PATH
 import lunch_crunch.page_order    # noqa: F401 — registers route "/"
 import lunch_crunch.page_settings # noqa: F401 — registers route "/settings"
@@ -34,6 +36,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 logger.info('Application started')
+
+try:
+    locale.setlocale(locale.LC_TIME, "de_DE.UTF-8")
+except locale.Error:
+    pass
+
+init_db()
 
 app.add_static_files('/assets', Path(__file__).parent / 'assets')
 ui.add_css("""
