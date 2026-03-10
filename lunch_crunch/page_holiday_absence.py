@@ -66,5 +66,5 @@ def holiday_absence_page() -> None:
         title="Ferienabfrage",
         help_lbl="Hier festlegen, welche Kinder an den Ferientagen anwesend sind. "
             "Nicht angehakt = abwesend (in der Essensbestellung geblockt).",
-        empty_lbl="Keine Ferien enigetragen."
+        empty_lbl="Keine Ferien eingetragen."
     )

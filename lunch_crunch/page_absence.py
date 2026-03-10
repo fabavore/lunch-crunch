@@ -17,14 +17,24 @@
 
 """Absence page - monthly weekday grid with per-child checkboxes."""
 
+import smtplib
+import ssl
+import socket
+from email.message import EmailMessage
+from email.header import Header
+from datetime import date
+
 from nicegui import ui
 
-from lunch_crunch.common import weekdays_of_month, header
+from lunch_crunch.db import get_db
+from lunch_crunch.common import weekdays_of_month, header, get_setting
 from lunch_crunch.absence import absence_grid
 
 @ui.page("/")
 def absence_page() -> None:
     """Route "/" - monthly weekday attendance grid with per-child absence checkboxes."""
+    today = date.today()
+
     header()
 
     def toggle_absence(conn, child_id: int, date_str: str, absent: bool) -> None:
@@ -60,8 +70,123 @@ def absence_page() -> None:
             ).fetchall()
         }
 
-    absence_grid(
-        toggle_absence, 
-        get_days=lambda conn, year, month: weekdays_of_month(year, month), 
-        get_absent=get_absent, get_locked=get_locked
-    )
+    def _meal_count() -> int:
+        today_str = today.isoformat()
+        with get_db() as conn:
+            return conn.execute(
+                """SELECT COUNT(*) FROM children
+                   WHERE DATE(created_at) <= ?
+                   AND archived_at IS NULL
+                   AND id NOT IN (SELECT child_id FROM absence WHERE date = ?)
+                   AND id NOT IN (SELECT child_id FROM holiday_absence WHERE date = ?)""",
+                (today_str, today_str, today_str),
+            ).fetchone()[0]
+
+    def _render_email(total: int) -> tuple[str, str]:
+        """Return (subject, body) rendered with today's date and meal count."""
+        subj_tpl = get_setting("email_subject", "Mittagessen-Bestellung {Datum}")
+        body_tpl = get_setting(
+            "email_body",
+            "Guten Morgen,\n\n"
+            "die heutige Mittagessen-Bestellung: {Anzahl} Essen.\n\n"
+            "Mit freundlichen Grüßen\n"
+            "Lunch Crunch",
+        )
+        fmt = {"Datum": today.strftime("%d.%m.%Y"), "Anzahl": total}
+        return subj_tpl.format(**fmt), body_tpl.format(**fmt)
+
+    def confirm_send_order() -> None:
+        total          = _meal_count()
+        subject, body  = _render_email(total)
+        with ui.dialog() as dialog, ui.card().classes("w-full max-w-lg"):
+            ui.label("Bestellung senden").classes("font-semibold text-lg")
+            ui.separator()
+            with ui.column().classes("gap-1 w-full"):
+                ui.label("Betreff").classes(
+                    "text-xs text-gray-400 font-semibold uppercase tracking-wide"
+                )
+                ui.label(subject).classes("text-sm")
+            ui.separator()
+            with ui.column().classes("gap-1 w-full"):
+                ui.label("Nachricht").classes(
+                    "text-xs text-gray-400 font-semibold uppercase tracking-wide"
+                )
+                ui.label(body).classes("text-sm whitespace-pre-wrap")
+            with ui.row().classes("w-full justify-end gap-2 mt-2"):
+                ui.button("Abbrechen", on_click=dialog.close).props("flat")
+                ui.button(
+                    "Senden", icon="send",
+                    on_click=lambda: (dialog.close(), send_order()),
+                ).props("color=positive")
+        dialog.open()
+
+    def send_order():
+        host      = get_setting("smtp_host")
+        port      = get_setting("smtp_port", "587")
+        user      = get_setting("smtp_user")
+        password  = get_setting("smtp_password")
+        recipient = get_setting("provider_email")
+
+        if not all([host, user, password, recipient]):
+            ui.notify(
+                "SMTP nicht konfiguriert - bitte zuerst in den Einstellungen eintragen", 
+                type="warning"
+            )
+            return
+
+        total          = _meal_count()
+        subject, body  = _render_email(total)
+
+        msg = EmailMessage()
+        msg["Subject"] = Header(subject).encode()
+        msg["From"]    = Header(user).encode()
+        msg["To"]      = recipient
+
+        msg.set_content(body)
+
+        local_hostname = socket.getfqdn().encode('ascii', 'ignore').decode('ascii') or 'localhost'
+
+        try:
+            with smtplib.SMTP(host, int(port), local_hostname) as smtp:
+                smtp.ehlo()
+                smtp.starttls(context=ssl.create_default_context())
+                smtp.login(user, password)
+                smtp.send_message(msg)
+        except (smtplib.SMTPException, OSError) as e:
+            ui.notify(f"Fehler beim Senden: {e}", type="negative")
+            return
+
+        with get_db() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO order_log (date, count) VALUES (?, ?)",
+                (today.isoformat(), total),
+            )
+        ui.notify(f"Bestellung gesendet - {total} Essen", type="positive")
+        rebuild()
+
+    def build_send_btn() -> None:
+        send_btn = ui.button(
+            "Bestellung senden", icon="send", on_click=confirm_send_order
+        )
+
+        with get_db() as conn:
+            today_is_closed = conn.execute(
+                "SELECT 1 FROM closing_days WHERE date = ?", (today.isoformat(),)
+            ).fetchone() is not None
+            order_sent_today = conn.execute(
+                "SELECT 1 FROM order_log WHERE date = ?", (today.isoformat(),)
+            ).fetchone() is not None
+        closed_or_sent = today_is_closed or order_sent_today
+        send_btn.set_enabled(not closed_or_sent)
+        send_btn.props("color=positive" if not closed_or_sent else "color=grey")
+
+    def rebuild() -> None:
+        absence_grid(
+            toggle_absence,
+            get_days=lambda conn, year, month: weekdays_of_month(year, month),
+            get_absent=get_absent,
+            get_locked=get_locked,
+            extra_btn=build_send_btn
+        )
+
+    rebuild()

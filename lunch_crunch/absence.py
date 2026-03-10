@@ -32,7 +32,7 @@ from lunch_crunch.common import get_children, get_closing_days
 from lunch_crunch.filter import month_and_group_filter
 
 def absence_grid(toggle_absence, get_days, get_absent, get_locked=lambda conn, year, month: {},
-                 title="", help_lbl="", empty_lbl="") -> None:
+                 title="", help_lbl="", empty_lbl="", extra_btn=None) -> None:
     """Render the full absence grid UI component.
 
     Args:
@@ -58,18 +58,6 @@ def absence_grid(toggle_absence, get_days, get_absent, get_locked=lambda conn, y
         with get_db() as conn:
             return bool(get_children(conn, f"{month_str}-01", f"{month_str}-{last}", current["group"]))
 
-    with ui.column().classes("w-full"):
-        if title:
-            ui.label(title).classes("text-2xl font-semibold").style("font-family: Antropos;")
-            ui.separator()
-        if help_lbl:
-            ui.label(help_lbl).classes("text-sm text-gray-500")
-
-        # Month navigation + group filter
-        month_and_group_filter(current, update=lambda: rebuild(), has_data=has_data)
-
-        grid_container = ui.column()
-
     def _toggle_absence(child_id: int, date_str: str, absent: bool) -> None:
         with get_db() as conn:
             toggle_absence(conn, child_id, date_str, absent)
@@ -89,6 +77,10 @@ def absence_grid(toggle_absence, get_days, get_absent, get_locked=lambda conn, y
 
             absent   = get_absent(conn, year, month)
             locked   = get_locked(conn, year, month)
+
+            order_sent_today = conn.execute(
+                "SELECT 1 FROM order_log WHERE date = ?", (today.isoformat(),)
+            ).fetchone() is not None
 
         gap_days = {d for d, prev in zip(days[1:], days) if (d - prev).days > 1}
 
@@ -139,7 +131,7 @@ def absence_grid(toggle_absence, get_days, get_absent, get_locked=lambda conn, y
                                 d_str = d.isoformat()
                                 is_closed = d_str in closed
                                 is_locked = (child["id"], d_str) in locked
-                                is_past   = d < today
+                                is_past   = d < today or (d == today and order_sent_today)
                                 week_sep = "border-l-2 border-l-gray-400" if d in gap_days else ""
                                 bg = ("bg-gray-100" if is_closed
                                     else "bg-amber-100" if is_locked
@@ -182,5 +174,17 @@ def absence_grid(toggle_absence, get_days, get_absent, get_locked=lambda conn, y
                                         and (c["id"], d_str) not in absent
                                     )
                                     ui.label(str(count)).classes("text-[13px] font-semibold")
+
+    with ui.column().classes("w-full"):
+        if title:
+            ui.label(title).classes("text-2xl font-semibold").style("font-family: Antropos;")
+            ui.separator()
+        if help_lbl:
+            ui.label(help_lbl).classes("text-sm text-gray-500")
+
+        # Month navigation + group filter
+        month_and_group_filter(current, update=rebuild, has_data=has_data, extra_btn=extra_btn)
+
+        grid_container = ui.column()
 
     rebuild()

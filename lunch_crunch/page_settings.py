@@ -17,13 +17,12 @@
 
 """Settings page - tabbed UI for children, closing days, holidays, e-mail, and order log."""
 
-import calendar
 from datetime import date, datetime, timedelta
 
 from nicegui import ui
 
 from lunch_crunch.db import get_db
-from lunch_crunch.common import get_groups, get_setting, save_setting, group_date_rows, header
+from lunch_crunch.common import get_groups, get_setting, save_setting, group_date_rows, header, weekdays_of_month
 
 
 _DE_LOCALE = (
@@ -105,16 +104,33 @@ def settings_page() -> None:
                             conn.execute(
                                 "INSERT INTO children (name, group_name) VALUES (?, ?)", (name, group)
                             )
+                            child_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                            past_days = [
+                                d for d in weekdays_of_month(today.year, today.month)
+                                if d <= today
+                            ]
+                            conn.executemany(
+                                "INSERT OR IGNORE INTO holiday_absence (child_id, date) VALUES (?, ?)",
+                                [(child_id, d.isoformat()) for d in past_days],
+                            )
                         name_input.value   = ""
                         group_select.value = None
                         ui.notify(f"{name} hinzugefügt", type="positive")
                         refresh_children()
 
                     def archive_child(child_id: int) -> None:
+                        remaining_days = [
+                            d for d in weekdays_of_month(today.year, today.month)
+                            if d > today
+                        ]
                         with get_db() as conn:
                             conn.execute(
                                 "UPDATE children SET archived_at = datetime('now') WHERE id = ?",
                                 (child_id,),
+                            )
+                            conn.executemany(
+                                "INSERT OR IGNORE INTO holiday_absence (child_id, date) VALUES (?, ?)",
+                                [(child_id, d.isoformat()) for d in remaining_days],
                             )
                         ui.notify("Entfernt", type="info")
                         refresh_children()
@@ -154,7 +170,7 @@ def settings_page() -> None:
             def closing_days(
                 tbl:  str = "closing_days",
                 desc: str = "Schließtag",
-                help: str = "Schließtage des Kindergartens - an diesen Tagen keine Bestellungen."
+                help_lbl: str = "Schließtage des Kindergartens - an diesen Tagen keine Bestellungen."
             ) -> None:
                 """Render the add/delete UI for a date table.
 
@@ -162,7 +178,7 @@ def settings_page() -> None:
                 a different ``tbl`` and ``desc``.
                 """
                 with ui.card().classes("w-full gap-3"):
-                    ui.label(help).classes("text-xs text-gray-500")
+                    ui.label(help_lbl).classes("text-xs text-gray-500")
                         
                     cd_range_switch = ui.switch("Datumsbereich")
 

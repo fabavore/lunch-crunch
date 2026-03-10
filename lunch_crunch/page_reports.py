@@ -23,15 +23,17 @@ from datetime import date
 from nicegui import ui
 
 from lunch_crunch.db import get_db
-from lunch_crunch.common import weekdays_of_month, get_groups, get_children, get_closing_days, header
+from lunch_crunch.common import weekdays_of_month, get_children, get_closing_days, header
 from lunch_crunch.filter import month_and_group_filter
 
 @ui.page("/reports")
 def reports_page() -> None:
+    """Route "/reports" - monthly meal count summary and per-child breakdown."""
     header()
 
     today = date.today()
     current = {"year": today.year, "month": today.month, "group": None}
+    is_forecast = True
 
     def has_data(year: int, month: int) -> bool:
         month_str = f"{year}-{month:02d}"
@@ -39,15 +41,12 @@ def reports_page() -> None:
         with get_db() as conn:
             return bool(get_children(conn, f"{month_str}-01", f"{month_str}-{last}", current["group"]))
 
-    with ui.column().classes("w-full max-w-2xl mx-auto"):
-        ui.label("Berichte").classes("text-2xl font-semibold").style("font-family: Antropos;")
-        ui.separator()
+    def export() -> None:
+        None
 
-        # Month navigation + group filter
-        month_and_group_filter(current, update=lambda: rebuild(), has_data=has_data)
-
-        summary_card = ui.card().classes("w-full")
-        children_card = ui.card().classes("w-full")
+    def build_download_btn() -> None:
+        download_btn = ui.button("Exportieren", icon="download", on_click=export).props("flat dense")
+        download_btn.set_enabled(not is_forecast)
 
     def rebuild() -> None:
         year, month = current["year"], current["month"]
@@ -107,7 +106,9 @@ def reports_page() -> None:
                     ui.label("Kinder").classes("text-xs text-gray-500")
                 with ui.column().classes("gap-0 items-center"):
                     ui.label(str(grand_total)).classes("text-3xl font-bold text-green-600")
-                    ui.label("Essen erwartet" if is_forecast else "Essen bestellt").classes("text-xs text-gray-500")
+                    ui.label(
+                        "Essen erwartet" if is_forecast else "Essen bestellt"
+                    ).classes("text-xs text-gray-500")
 
         # -- Per-child card ----------------------------------------------------
         children_card.clear()
@@ -130,5 +131,17 @@ def reports_page() -> None:
                         "align": "right"
                     },
                 ]).classes("w-full")
+
+    with ui.column().classes("w-full max-w-2xl mx-auto"):
+        ui.label("Berichte").classes("text-2xl font-semibold").style("font-family: Antropos;")
+        ui.separator()
+
+        # Month navigation + group filter
+        month_and_group_filter(
+            current, update=rebuild, has_data=has_data, extra_btn=build_download_btn
+        )
+
+        summary_card = ui.card().classes("w-full")
+        children_card = ui.card().classes("w-full")
 
     rebuild()

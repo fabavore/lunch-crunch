@@ -23,7 +23,7 @@ from nicegui import ui
 
 from lunch_crunch.common import get_groups
 
-def month_and_group_filter(current, update, has_data=None) -> None:
+def month_and_group_filter(current, update, has_data=None, extra_btn=None) -> None:
     """Render prev/next month buttons, a month label, a "Heute" button, and a group selector.
 
     Args:
@@ -36,8 +36,10 @@ def month_and_group_filter(current, update, has_data=None) -> None:
     def _adj(delta: int) -> tuple[int, int]:
         m = current["month"] + delta
         y = current["year"]
-        if m > 12: return 1, y + 1
-        if m < 1:  return 12, y - 1
+        if m > 12:
+            return 1, y + 1
+        if m < 1:
+            return 12, y - 1
         return m, y
 
     def _refresh_buttons() -> None:
@@ -72,12 +74,15 @@ def month_and_group_filter(current, update, has_data=None) -> None:
             date(current["year"], current["month"], 1).strftime("%B %Y")
         ).classes("text-xl font-semibold w-44 text-center").style("font-family: Antropos;")
         next_btn    = ui.button(icon="chevron_right", on_click=lambda: change_month(1)).props("flat round")
-        ui.button("Heute", on_click=lambda: go_today()).props("flat dense").style("font-family: Antropos;")
+        ui.button("Heute", on_click=go_today).props("flat dense").style("font-family: Antropos;")
         # ui.separator().props("vertical")
         ui.select(
             options=["Alle Gruppen"] + get_groups(),
             value="Alle Gruppen",
             on_change=lambda e: set_group(e.value),
-        ).classes("w-40 mx-4").props("dense outlined")
+        ).classes("w-36 mx-4").props("dense outlined")
+        if extra_btn:
+            ui.space()
+            extra_btn()
 
     _refresh_buttons()
