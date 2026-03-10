@@ -53,6 +53,16 @@ def save_setting(key: str, value: str) -> None:
         )
 
 
+def weekdays_of_month(year: int, month: int) -> list[date]:
+    """Return all Mon-Fri dates in the given month."""
+    _, last_day = calendar.monthrange(year, month)
+    return [
+        date(year, month, d)
+        for d in range(1, last_day + 1)
+        if date(year, month, d).weekday() < 5
+    ]
+
+
 def get_children(conn, active_after: date | str, active_before: date | str, group: str | None = None) -> list:
     """Return children active during [active_after, active_before], optionally filtered by group name."""
     if group:
@@ -116,5 +126,7 @@ def header() -> None:
                   icon="restaurant").props("flat color=white").style("font-family: Antropos;")
         ui.button("Ferienabfrage", on_click=lambda: ui.navigate.to("/holiday_absence"),
                   icon="event_busy").props("flat color=white").style("font-family: Antropos;")
+        ui.button("Berichte", on_click=lambda: ui.navigate.to("/reports"),
+                  icon="bar_chart").props("flat color=white").style("font-family: Antropos;")
         ui.button("Einstellungen", on_click=lambda: ui.navigate.to("/settings"),
                   icon="settings").props("flat color=white").style("font-family: Antropos;")

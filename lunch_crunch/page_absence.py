@@ -17,12 +17,9 @@
 
 """Absence page - monthly weekday grid with per-child checkboxes."""
 
-import calendar
-from datetime import date
-
 from nicegui import ui
 
-from lunch_crunch.common import header
+from lunch_crunch.common import weekdays_of_month, header
 from lunch_crunch.absence import absence_grid
 
 @ui.page("/")
@@ -42,10 +39,6 @@ def absence_page() -> None:
                 "DELETE FROM absence WHERE child_id = ? AND date = ?",
                 (child_id, date_str),
             )
-
-    def get_days(conn, year, month) -> list:
-        _, last = calendar.monthrange(year, month)
-        return [date(year, month, d) for d in range(1, last + 1) if date(year, month, d).weekday() < 5]
 
     def get_absent(conn, year, month) -> set:
         month_str = f"{year}-{month:02d}"
@@ -67,4 +60,8 @@ def absence_page() -> None:
             ).fetchall()
         }
 
-    absence_grid(toggle_absence, get_days, get_absent, get_locked)
+    absence_grid(
+        toggle_absence, 
+        get_days=lambda conn, year, month: weekdays_of_month(year, month), 
+        get_absent=get_absent, get_locked=get_locked
+    )

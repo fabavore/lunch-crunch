@@ -23,8 +23,6 @@ unused-import warnings from linters.
 """
 
 import logging
-import os
-import sys
 import locale
 from pathlib import Path
 
@@ -34,6 +32,7 @@ from lunch_crunch.db import init_db
 from lunch_crunch.common import LOG_PATH
 import lunch_crunch.page_absence            # noqa: F401 - registers route "/"
 import lunch_crunch.page_holiday_absence    # noqa: F401 - registers route "/holiday_absence"
+import lunch_crunch.page_reports            # noqa: F401 - registers route "/reports"
 import lunch_crunch.page_settings           # noqa: F401 - registers route "/settings"
 
 
