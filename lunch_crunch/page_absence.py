@@ -15,7 +15,7 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Absence page — monthly weekday grid with per-child checkboxes."""
+"""Absence page - monthly weekday grid with per-child checkboxes."""
 
 import calendar
 from datetime import date
@@ -27,6 +27,7 @@ from lunch_crunch.absence import absence_grid
 
 @ui.page("/")
 def absence_page() -> None:
+    """Route "/" - monthly weekday attendance grid with per-child absence checkboxes."""
     header()
 
     def toggle_absence(conn, child_id: int, date_str: str, absent: bool) -> None:

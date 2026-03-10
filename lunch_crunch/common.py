@@ -39,12 +39,14 @@ def get_groups() -> list[str]:
 
 
 def get_setting(key: str, default: str = "") -> str:
+    """Return the value for *key* from the settings table, or *default* if missing."""
     with get_db() as conn:
         row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
     return row["value"] if row else default
 
 
 def save_setting(key: str, value: str) -> None:
+    """Upsert *key* -> *value* in the settings table."""
     with get_db() as conn:
         conn.execute(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value)
@@ -69,6 +71,7 @@ def get_children(conn, active_after: date | str, active_before: date | str, grou
 
 
 def get_closing_days(conn, year, month) -> dict:
+    """Return ``{date_str: note}`` for all closing days in the given month."""
     month_str = f"{year}-{month:02d}"
     return {
         r["date"]: r["note"]
@@ -105,6 +108,7 @@ def group_date_rows(rows) -> list:
 
 
 def header() -> None:
+    """Render the application top-bar with navigation buttons."""
     with ui.header(elevated=True).classes("items-center px-4 gap-2 bg-pink-900/90"):
         ui.label("Mahlzeit").classes("text-white text-xl font-bold").style("font-family: Antropos;")
         ui.space()

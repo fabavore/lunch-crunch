@@ -15,6 +15,8 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+"""Settings page - tabbed UI for children, closing days, holidays, e-mail, and order log."""
+
 import calendar
 from datetime import date, datetime, timedelta
 
@@ -37,6 +39,7 @@ _DATE_PROPS = f"mask='DD.MM.YYYY' :locale='{_DE_LOCALE}'"
 
 @ui.page("/settings")
 def settings_page() -> None:
+    """Route "/settings" - tabbed settings: children, closing days, holidays, e-mail, log."""
     today = date.today()
     header()
 
@@ -153,6 +156,11 @@ def settings_page() -> None:
                 desc: str = "Schließtag",
                 help: str = "Schließtage des Kindergartens - an diesen Tagen keine Bestellungen."
             ) -> None:
+                """Render the add/delete UI for a date table.
+
+                Reused for both the *Schließtage* and *Schulferien* tabs by passing
+                a different ``tbl`` and ``desc``.
+                """
                 with ui.card().classes("w-full gap-3"):
                     ui.label(help).classes("text-xs text-gray-500")
                         

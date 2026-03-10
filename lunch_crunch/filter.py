@@ -15,6 +15,8 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+"""Reusable month-navigation + group-filter widget for grid pages."""
+
 from datetime import date
 
 from nicegui import ui
@@ -22,6 +24,15 @@ from nicegui import ui
 from lunch_crunch.common import get_groups
 
 def month_and_group_filter(current, update, has_data=None) -> None:
+    """Render prev/next month buttons, a month label, a "Heute" button, and a group selector.
+
+    Args:
+        current:  Mutable dict with keys ``year``, ``month``, ``group``.
+                  Updated in-place when the user navigates or selects a group.
+        update:   Called after every state change to refresh the page content.
+        has_data: Optional callable ``(year, month) -> bool``.  When provided,
+                  the prev/next buttons are disabled for months that return False.
+    """
     def _adj(delta: int) -> tuple[int, int]:
         m = current["month"] + delta
         y = current["year"]

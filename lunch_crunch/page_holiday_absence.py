@@ -26,6 +26,7 @@ from lunch_crunch.absence import absence_grid
 
 @ui.page("/holiday_absence")
 def holiday_absence_page() -> None:
+    """Route "/holiday_absence" - per-child presence grid for school-holiday dates."""
     header()
 
     def toggle_absence(conn, child_id: int, date_str: str, absent: bool) -> None:

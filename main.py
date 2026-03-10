@@ -14,6 +14,14 @@
 #
 #   You should have received a copy of the GNU Affero General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Lunch Crunch entry point.
+
+Initialises the database, registers static assets and the custom font,
+then starts NiceGUI in native (desktop) mode.  Page routes are registered
+by importing the page modules; the ``# noqa: F401`` comments suppress
+unused-import warnings from linters.
+"""
+
 import logging
 import os
 import sys
@@ -24,9 +32,9 @@ from nicegui import app, ui
 
 from lunch_crunch.db import init_db
 from lunch_crunch.common import LOG_PATH
-import lunch_crunch.page_absence            # noqa: F401 — registers route "/"
-import lunch_crunch.page_holiday_absence    # noqa: F401 — registers route "/holiday_absence"
-import lunch_crunch.page_settings           # noqa: F401 — registers route "/settings"
+import lunch_crunch.page_absence            # noqa: F401 - registers route "/"
+import lunch_crunch.page_holiday_absence    # noqa: F401 - registers route "/holiday_absence"
+import lunch_crunch.page_settings           # noqa: F401 - registers route "/settings"
 
 
 logging.basicConfig(
