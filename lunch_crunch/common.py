@@ -51,7 +51,7 @@ def save_setting(key: str, value: str) -> None:
         )
 
 
-def get_children(conn, active_after: date, active_before: date, group: str | None = None) -> list:
+def get_children(conn, active_after: date | str, active_before: date | str, group: str | None = None) -> list:
     """Return children active during [active_after, active_before], optionally filtered by group name."""
     if group:
         return conn.execute(
@@ -68,11 +68,49 @@ def get_children(conn, active_after: date, active_before: date, group: str | Non
     ).fetchall()
 
 
+def get_closing_days(conn, year, month) -> dict:
+    month_str = f"{year}-{month:02d}"
+    return {
+        r["date"]: r["note"]
+            for r in conn.execute(
+                "SELECT date, note FROM closing_days WHERE date LIKE ?",
+                (f"{month_str}-%",),
+            ).fetchall()
+    }
+
+
+def group_date_rows(rows) -> list:
+    """Group consecutive date rows (same note, gap at most 3 days for weekends) into
+    (from_str, to_str, note, [date_str, ...]) tuples."""
+    groups = []
+    if not rows:
+        return groups
+
+    row = rows[0]
+    dates = [date.fromisoformat(row["date"])]
+    note  = row["note"]
+
+    for row in rows[1:]:
+        dt = date.fromisoformat(row["date"])
+        nt = row["note"]
+        if ((dt - dates[-1]).days <= 1 or dt.weekday() == 0 and (dt - dates[-1]).days <= 3) and nt == note:
+            dates.append(dt)
+        else:
+            groups.append((dates[0], dates[-1], note, dates))
+            dates = [dt]
+            note  = nt
+
+    groups.append((dates[0], dates[-1], note, dates))
+    return groups
+
+
 def header() -> None:
-    with ui.header(elevated=True).classes('items-center px-4 gap-2 bg-pink-900/90'):
-        ui.label('Mahlzeit').classes('text-white text-xl font-bold').style('font-family: Antropos;')
+    with ui.header(elevated=True).classes("items-center px-4 gap-2 bg-pink-900/90"):
+        ui.label("Mahlzeit").classes("text-white text-xl font-bold").style("font-family: Antropos;")
         ui.space()
-        ui.button('Bestellung',    on_click=lambda: ui.navigate.to('/'),
-                  icon='restaurant').props('flat color=white').style('font-family: Antropos;')
-        ui.button('Einstellungen', on_click=lambda: ui.navigate.to('/settings'),
-                  icon='settings').props('flat color=white').style('font-family: Antropos;')
+        ui.button("Bestellung",    on_click=lambda: ui.navigate.to("/"),
+                  icon="restaurant").props("flat color=white").style("font-family: Antropos;")
+        ui.button("Ferienabfrage", on_click=lambda: ui.navigate.to("/holiday_absence"),
+                  icon="event_busy").props("flat color=white").style("font-family: Antropos;")
+        ui.button("Einstellungen", on_click=lambda: ui.navigate.to("/settings"),
+                  icon="settings").props("flat color=white").style("font-family: Antropos;")

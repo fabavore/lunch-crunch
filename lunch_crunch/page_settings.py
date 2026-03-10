@@ -21,7 +21,7 @@ from datetime import date, datetime, timedelta
 from nicegui import ui
 
 from lunch_crunch.db import get_db
-from lunch_crunch.common import get_groups, get_setting, save_setting, header
+from lunch_crunch.common import get_groups, get_setting, save_setting, group_date_rows, header
 
 
 _DE_LOCALE = (
@@ -35,30 +35,21 @@ _DE_LOCALE = (
 _DATE_PROPS = f"mask='DD.MM.YYYY' :locale='{_DE_LOCALE}'"
 
 
-@ui.page('/settings')
+@ui.page("/settings")
 def settings_page() -> None:
     today = date.today()
     header()
 
-    def reset_settings():
-        mailer.__init__(mailer.config_file, mailer.order_manager)
-        ui.notify('Einstellungen zurückgesetzt!')
-        settings_page.refresh()
-
-    def save_settings():
-        mailer.save_config()
-        ui.notify('Einstellungen gespeichert!')
-
-    with ui.column().classes('w-full max-w-2xl mx-auto'):
-        ui.label("Einstellungen").classes("text-2xl font-semibold").style('font-family: Antropos;')
+    with ui.column().classes("w-full max-w-2xl mx-auto"):
+        ui.label("Einstellungen").classes("text-2xl font-semibold").style("font-family: Antropos;")
         ui.separator()
 
         with ui.tabs().classes("w-full") as tabs:
-            tab_children = ui.tab("Kinder", icon="group").style('font-family: Antropos;')
-            tab_closing  = ui.tab("Schließtage", icon="block").style('font-family: Antropos;')
-            tab_holidays = ui.tab("Schulferien", icon="beach_access").style('font-family: Antropos;')
-            tab_smtp     = ui.tab("E-Mail", icon="email").style('font-family: Antropos;')
-            tab_log      = ui.tab("Bestellprotokoll", icon="receipt_long").style('font-family: Antropos;')
+            tab_children = ui.tab("Kinder", icon="group").style("font-family: Antropos;")
+            tab_closing  = ui.tab("Schließtage", icon="block").style("font-family: Antropos;")
+            tab_holidays = ui.tab("Schulferien", icon="beach_access").style("font-family: Antropos;")
+            tab_smtp     = ui.tab("E-Mail", icon="email").style("font-family: Antropos;")
+            tab_log      = ui.tab("Bestellprotokoll", icon="receipt_long").style("font-family: Antropos;")
 
         def fmt_date(iso: date) -> str:
             return iso.strftime("%d.%m.%Y")
@@ -66,32 +57,8 @@ def settings_page() -> None:
         def parse_date(display: str) -> date:
             return datetime.strptime(display, "%d.%m.%Y").date()
 
-        def group_date_rows(rows) -> list:
-            """Group consecutive date rows (same note, gap at most 3 days for weekends) into
-            (from_str, to_str, note, [date_str, ...]) tuples."""
-            groups = []
-            if not rows:
-                return groups
 
-            row = rows[0]
-            dates = [date.fromisoformat(row["date"])]
-            note  = row["note"]
-
-            for row in rows[1:]:
-                dt = date.fromisoformat(row["date"])
-                nt = row["note"]
-                if ((dt - dates[-1]).days <= 1 or dt.weekday() == 0 and (dt - dates[-1]).days <= 3) and nt == note:
-                    dates.append(dt)
-                else:
-                    groups.append((dates[0], dates[-1], note, dates))
-                    dates = [dt]
-                    note  = nt
-
-            groups.append((dates[0], dates[-1], note, dates))
-            return groups
-
-
-        with ui.tab_panels(tabs, value=tab_children).classes("w-full").style('background: transparent;'):
+        with ui.tab_panels(tabs, value=tab_children).classes("w-full").style("background: transparent;"):
 
             # -- Children ------------------------------------------------------
             with ui.tab_panel(tab_children):

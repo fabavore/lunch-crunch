@@ -24,8 +24,9 @@ from nicegui import app, ui
 
 from lunch_crunch.db import init_db
 from lunch_crunch.common import LOG_PATH
-import lunch_crunch.page_order    # noqa: F401 — registers route "/"
-import lunch_crunch.page_settings # noqa: F401 — registers route "/settings"
+import lunch_crunch.page_absence            # noqa: F401 — registers route "/"
+import lunch_crunch.page_holiday_absence    # noqa: F401 — registers route "/holiday_absence"
+import lunch_crunch.page_settings           # noqa: F401 — registers route "/settings"
 
 
 logging.basicConfig(
