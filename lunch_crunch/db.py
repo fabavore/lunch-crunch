@@ -37,9 +37,11 @@ from contextlib import contextmanager
 
 from platformdirs import user_data_path
 
+from lunch_crunch.common import APP_NAME
+
 logger = logging.getLogger(__name__)
 
-_DB_PATH = user_data_path("lunch-crunch", ensure_exists=True) / "lunch_crunch.db"
+_DB_PATH = user_data_path(APP_NAME.lower(), ensure_exists=True) / "lunch_crunch.db"
 
 
 def get_connection() -> sqlite3.Connection:

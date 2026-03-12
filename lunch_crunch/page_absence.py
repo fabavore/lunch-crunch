@@ -163,6 +163,7 @@ def absence_page() -> None:
                 "INSERT OR IGNORE INTO order_log (date, count) VALUES (?, ?)",
                 (today.isoformat(), total),
             )
+        logger.info("Order sent: %d meals", total)
         ui.notify(f"Bestellung gesendet - {total} Essen", type="positive")
         rebuild()
 

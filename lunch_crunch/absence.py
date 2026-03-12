@@ -33,22 +33,26 @@ from lunch_crunch.filter import month_and_group_filter
 
 
 def absence_grid(toggle_absence, get_days, get_absent, get_locked=lambda conn, year, month: {},
-                 title="", help_lbl="", empty_lbl="", extra_btn=None) -> None:
+                 empty_lbl="", extra_btn=None) -> None:
     """Render the full absence grid UI component.
 
+    Shared by ``page_absence`` (weekday columns) and ``page_holiday_absence``
+    (school-holiday columns). Month navigation and group filter are built in;
+    columns with a gap > 1 calendar day get a visual separator.
+
     Args:
-        toggle_absence: ``(conn, child_id, date_str, absent) -> None`` -
+        toggle_absence: ``(conn, child_id, date_str, absent) -> None`` —
                         called inside an open DB connection to persist a checkbox change.
-        get_days:       ``(conn, year, month) -> list[date]`` -
+        get_days:       ``(conn, year, month) -> list[date]`` —
                         returns the ordered list of dates to display as columns.
-        get_absent:     ``(conn, year, month) -> set[tuple[int, str]]`` 
+        get_absent:     ``(conn, year, month) -> set[tuple[int, str]]`` —
                         returns ``{(child_id, date_str), ...}`` of absent entries.
-        get_locked:     ``(conn, year, month) -> set[tuple[int, str]]`` -
+        get_locked:     ``(conn, year, month) -> set[tuple[int, str]]`` —
                         returns entries shown as locked (amber "—", not editable).
                         Defaults to an empty set.
-        title:          Optional heading rendered above the filter bar.
-        help_lbl:       Optional explanatory text below the heading.
         empty_lbl:      Message shown when ``get_days`` returns an empty list.
+        extra_btn:      Optional callable rendered at the right of the filter bar
+                        (e.g. the "Bestellung senden" button on the absence page).
     """
     today = date.today()
     current = {"year": today.year, "month": today.month, "group": None}
@@ -177,14 +181,12 @@ def absence_grid(toggle_absence, get_days, get_absent, get_locked=lambda conn, y
                                     ui.label(str(count)).classes("text-[13px] font-semibold")
 
     with ui.column().classes("w-full"):
-        if title:
-            ui.label(title).classes("text-2xl font-semibold").style("font-family: Antropos;")
-            ui.separator()
-        if help_lbl:
-            ui.label(help_lbl).classes("text-sm text-gray-500")
-
-        # Month navigation + group filter
-        month_and_group_filter(current, update=rebuild, has_data=has_data, extra_btn=extra_btn)
+        with ui.row(align_items="center"):
+            # Month navigation + group filter
+            month_and_group_filter(current, update=rebuild, has_data=has_data)
+            if extra_btn:
+                ui.space()
+                extra_btn()
 
         grid_container = ui.column()
 

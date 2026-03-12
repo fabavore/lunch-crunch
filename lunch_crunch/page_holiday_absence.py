@@ -61,10 +61,15 @@ def holiday_absence_page() -> None:
             ).fetchall()
         }
 
+    with ui.column().classes("w-full"):
+        ui.label("Ferienabfrage").classes("text-2xl font-semibold").style("font-family: Antropos;")
+        ui.separator()
+        ui.label(
+            "Hier festlegen, welche Kinder an den Ferientagen anwesend sind. "
+            "Nicht angehakt = abwesend (in der Essensbestellung geblockt)."
+        ).classes("text-sm text-gray-500")
+
     absence_grid(
         toggle_absence, get_days, get_absent,
-        title="Ferienabfrage",
-        help_lbl="Hier festlegen, welche Kinder an den Ferientagen anwesend sind. "
-            "Nicht angehakt = abwesend (in der Essensbestellung geblockt).",
         empty_lbl="Keine Ferien eingetragen."
     )

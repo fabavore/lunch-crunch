@@ -33,7 +33,6 @@ def reports_page() -> None:
 
     today = date.today()
     current = {"year": today.year, "month": today.month, "group": None}
-    is_forecast = True
 
     def has_data(year: int, month: int) -> bool:
         month_str = f"{year}-{month:02d}"
@@ -43,10 +42,6 @@ def reports_page() -> None:
 
     def export() -> None:
         None
-
-    def build_download_btn() -> None:
-        download_btn = ui.button("Exportieren", icon="download", on_click=export).props("flat dense")
-        download_btn.set_enabled(not is_forecast)
 
     def rebuild() -> None:
         year, month = current["year"], current["month"]
@@ -88,6 +83,7 @@ def reports_page() -> None:
             grand_total += meals
 
         is_forecast = (year, month) >= (today.year, today.month)
+        download_btn.set_enabled(not is_forecast)
 
         # -- Summary card ------------------------------------------------------
         summary_card.clear()
@@ -132,14 +128,15 @@ def reports_page() -> None:
                     },
                 ]).classes("w-full")
 
-    with ui.column().classes("w-full max-w-2xl mx-auto"):
+    with ui.column().classes("w-full max-w-3xl mx-auto"):
         ui.label("Berichte").classes("text-2xl font-semibold").style("font-family: Antropos;")
         ui.separator()
 
-        # Month navigation + group filter
-        month_and_group_filter(
-            current, update=rebuild, has_data=has_data, extra_btn=build_download_btn
-        )
+        with ui.row(align_items="center"):
+            # Month navigation + group filter
+            month_and_group_filter(current, update=rebuild, has_data=has_data)
+            ui.space()
+            download_btn = ui.button("Exportieren", icon="download", on_click=export).props("flat dense")
 
         summary_card = ui.card().classes("w-full")
         children_card = ui.card().classes("w-full")
