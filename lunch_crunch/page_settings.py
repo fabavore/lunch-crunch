@@ -56,6 +56,7 @@ def settings_page() -> None:
             tab_closing  = ui.tab("Schließtage", icon="block").style("font-family: Antropos;")
             tab_holidays = ui.tab("Schulferien", icon="beach_access").style("font-family: Antropos;")
             tab_smtp     = ui.tab("E-Mail", icon="email").style("font-family: Antropos;")
+            tab_general  = ui.tab("Allgemein", icon="tune").style("font-family: Antropos;")
 
         def fmt_date(iso: date) -> str:
             return iso.strftime("%d.%m.%Y")
@@ -350,3 +351,31 @@ def settings_page() -> None:
                         ui.notify("Einstellungen gespeichert", type="positive")
 
                     ui.button("Speichern", icon="save", on_click=save_smtp).classes("self-end")
+
+            # -- General -------------------------------------------------------
+            with ui.tab_panel(tab_general):
+                with ui.card().classes("w-full gap-2"):
+                    ui.label("Abrechnung").classes("font-medium")
+                    with get_db() as conn:
+                        stored = get_setting(conn, "price_per_meal", "")
+                    price_display = f"{float(stored):.2f}".replace(".", ",") if stored else ""
+                    price_input = ui.input(
+                        "Preis pro Essen (€)",
+                        value=price_display,
+                        placeholder="0,00",
+                    ).classes("w-48")
+                    ui.label("Wird im Bericht zur Berechnung der Kosten verwendet.").classes("text-xs text-gray-500")
+
+                    def save_general() -> None:
+                        raw = price_input.value.strip().replace(",", ".")
+                        try:
+                            price_val = f"{float(raw):.2f}" if raw else ""
+                            price_input.value = price_val.replace(".", ",") if price_val else ""
+                        except ValueError:
+                            ui.notify("Ungültiger Preis", type="warning")
+                            return
+                        with get_db() as conn:
+                            save_setting(conn, "price_per_meal", price_val)
+                        ui.notify("Einstellungen gespeichert", type="positive")
+
+                    ui.button("Speichern", icon="save", on_click=save_general).classes("self-end")
