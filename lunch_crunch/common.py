@@ -30,7 +30,25 @@ from lunch_crunch.db import get_db
 _CONFIG_PATH = user_config_path("lunch-crunch", ensure_exists=True) / "config.toml"
 LOG_PATH     = user_log_path("lunch-crunch", ensure_exists=True) / "app.log"
 
+DEFAULT_EMAIL_SUBJECT = "Mittagessen-Bestellung {Datum}"
+DEFAULT_EMAIL_BODY = """Guten Morgen,\n\n
+    die heutige Mittagessen-Bestellung: {Anzahl} Essen.\n\n
+    Mit freundlichen Grüßen\n
+    Euer Kindergarten-Team"""
+
+
+def weekdays_of_month(year: int, month: int) -> list[date]:
+    """Return all Mon-Fri dates in the given month."""
+    _, last_day = calendar.monthrange(year, month)
+    return [
+        date(year, month, d)
+        for d in range(1, last_day + 1)
+        if date(year, month, d).weekday() < 5
+    ]
+
+
 def get_groups() -> list[str]:
+    """Return the list of group names from the TOML config, or an empty list if not configured."""
     try:
         with open(_CONFIG_PATH, "rb") as f:
             return tomllib.load(f).get("groups", [])
@@ -51,16 +69,6 @@ def save_setting(key: str, value: str) -> None:
         conn.execute(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value)
         )
-
-
-def weekdays_of_month(year: int, month: int) -> list[date]:
-    """Return all Mon-Fri dates in the given month."""
-    _, last_day = calendar.monthrange(year, month)
-    return [
-        date(year, month, d)
-        for d in range(1, last_day + 1)
-        if date(year, month, d).weekday() < 5
-    ]
 
 
 def get_children(conn, active_after: date | str, active_before: date | str, group: str | None = None) -> list:

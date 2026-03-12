@@ -22,7 +22,12 @@ from datetime import date, datetime, timedelta
 from nicegui import ui
 
 from lunch_crunch.db import get_db
-from lunch_crunch.common import get_groups, get_setting, save_setting, group_date_rows, header, weekdays_of_month
+from lunch_crunch.common import (
+    get_groups, get_setting, save_setting, group_date_rows,
+    weekdays_of_month,
+    header,
+    DEFAULT_EMAIL_SUBJECT, DEFAULT_EMAIL_BODY
+)
 
 
 _DE_LOCALE = (
@@ -51,7 +56,6 @@ def settings_page() -> None:
             tab_closing  = ui.tab("Schließtage", icon="block").style("font-family: Antropos;")
             tab_holidays = ui.tab("Schulferien", icon="beach_access").style("font-family: Antropos;")
             tab_smtp     = ui.tab("E-Mail", icon="email").style("font-family: Antropos;")
-            tab_log      = ui.tab("Bestellprotokoll", icon="receipt_long").style("font-family: Antropos;")
 
         def fmt_date(iso: date) -> str:
             return iso.strftime("%d.%m.%Y")
@@ -88,6 +92,7 @@ def settings_page() -> None:
                                             ).props("flat round size=sm").tooltip("Gruppe ändern")
                                             ui.button(
                                                 icon="archive",
+                                                color="negative",
                                                 on_click=lambda cid=row["id"]: archive_child(cid),
                                             ).props("flat round size=sm").tooltip("Archivieren")
 
@@ -313,12 +318,11 @@ def settings_page() -> None:
 
                     subject_input = ui.input(
                         "Betreff",
-                        value=get_setting("email_subject", "Mittagessen-Bestellung {Datum}"),
+                        value=get_setting("email_subject", DEFAULT_EMAIL_SUBJECT),
                     ).classes("w-full")
                     body_input = ui.textarea(
                         "Text",
-                        value=get_setting("email_body",
-                                        "Guten Morgen,\n\ndie heutige Mittagessen-Bestellung: {Anzahl} Essen.\n\nMit freundlichen Grüßen,\nLunch Crunch"),
+                        value=get_setting("email_body", DEFAULT_EMAIL_BODY)
                     ).classes("w-full").props("rows=6")
 
                     def save_smtp() -> None:
@@ -327,15 +331,8 @@ def settings_page() -> None:
                         save_setting("smtp_user",       user_input.value.strip())
                         save_setting("smtp_password",   password_input.value)
                         save_setting("provider_email",  recipient_input.value.strip())
-                        save_setting("email_subject",   subject_input.value.strip() or "Mittagessen-Bestellung {date}")
-                        save_setting("email_body",      body_input.value or "Heutige Mittagessen-Bestellung: {Anzahl} Essen.")
+                        save_setting("email_subject",   subject_input.value.strip() or DEFAULT_EMAIL_SUBJECT)
+                        save_setting("email_body",      body_input.value or DEFAULT_EMAIL_BODY)
                         ui.notify("Einstellungen gespeichert", type="positive")
 
                     ui.button("Speichern", icon="save", on_click=save_smtp).classes("self-end")
-
-            # -- Order log -----------------------------------------------------
-            with ui.tab_panel(tab_log):
-                with ui.card().classes("w-full"):
-                    ui.label("Noch keine Bestellungen gesendet.").classes("text-gray-500 text-sm")
-
-

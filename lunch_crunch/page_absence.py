@@ -17,6 +17,7 @@
 
 """Absence page - monthly weekday grid with per-child checkboxes."""
 
+import logging
 import smtplib
 import ssl
 import socket
@@ -27,8 +28,14 @@ from datetime import date
 from nicegui import ui
 
 from lunch_crunch.db import get_db
-from lunch_crunch.common import weekdays_of_month, header, get_setting
+from lunch_crunch.common import (
+    weekdays_of_month, header, get_setting,
+    DEFAULT_EMAIL_SUBJECT, DEFAULT_EMAIL_BODY
+)
 from lunch_crunch.absence import absence_grid
+
+logger = logging.getLogger(__name__)
+
 
 @ui.page("/")
 def absence_page() -> None:
@@ -84,14 +91,8 @@ def absence_page() -> None:
 
     def _render_email(total: int) -> tuple[str, str]:
         """Return (subject, body) rendered with today's date and meal count."""
-        subj_tpl = get_setting("email_subject", "Mittagessen-Bestellung {Datum}")
-        body_tpl = get_setting(
-            "email_body",
-            "Guten Morgen,\n\n"
-            "die heutige Mittagessen-Bestellung: {Anzahl} Essen.\n\n"
-            "Mit freundlichen Grüßen\n"
-            "Lunch Crunch",
-        )
+        subj_tpl = get_setting("email_subject", DEFAULT_EMAIL_SUBJECT)
+        body_tpl = get_setting("email_body", DEFAULT_EMAIL_BODY)
         fmt = {"Datum": today.strftime("%d.%m.%Y"), "Anzahl": total}
         return subj_tpl.format(**fmt), body_tpl.format(**fmt)
 
@@ -153,6 +154,7 @@ def absence_page() -> None:
                 smtp.login(user, password)
                 smtp.send_message(msg)
         except (smtplib.SMTPException, OSError) as e:
+            logger.error("SMTP send failed: %s", e, exc_info=True)
             ui.notify(f"Fehler beim Senden: {e}", type="negative")
             return
 

@@ -31,10 +31,13 @@ Typical usage::
         rows = conn.execute("SELECT * FROM children").fetchall()
 """
 
+import logging
 import sqlite3
 from contextlib import contextmanager
 
 from platformdirs import user_data_path
+
+logger = logging.getLogger(__name__)
 
 _DB_PATH = user_data_path("lunch-crunch", ensure_exists=True) / "lunch_crunch.db"
 
@@ -67,6 +70,7 @@ def get_db():
         conn.commit()
     except Exception:
         conn.rollback()
+        logger.error("Database transaction rolled back", exc_info=True)
         raise
     finally:
         conn.close()

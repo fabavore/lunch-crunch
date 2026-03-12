@@ -23,6 +23,7 @@ from nicegui import ui
 
 from lunch_crunch.common import get_groups
 
+
 def month_and_group_filter(current, update, has_data=None, extra_btn=None) -> None:
     """Render prev/next month buttons, a month label, a "Heute" button, and a group selector.
 

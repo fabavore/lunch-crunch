@@ -31,6 +31,7 @@ from lunch_crunch.db import get_db
 from lunch_crunch.common import get_children, get_closing_days
 from lunch_crunch.filter import month_and_group_filter
 
+
 def absence_grid(toggle_absence, get_days, get_absent, get_locked=lambda conn, year, month: {},
                  title="", help_lbl="", empty_lbl="", extra_btn=None) -> None:
     """Render the full absence grid UI component.
