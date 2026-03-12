@@ -306,33 +306,47 @@ def settings_page() -> None:
             with ui.tab_panel(tab_smtp):
                 with ui.card().classes("w-full gap-2"):
                     ui.label("SMTP-Server").classes("font-medium")
-                    host_input      = ui.input("SMTP-Host", value=get_setting("smtp_host")).classes("w-full")
-                    port_input      = ui.input("SMTP-Port", value=get_setting("smtp_port", "587")).classes("w-full")
-                    user_input      = ui.input("Benutzername (E-Mail Absender)", value=get_setting("smtp_user")).classes("w-full")
-                    password_input  = ui.input("Passwort", value=get_setting("smtp_password"), password=True, password_toggle_button=True).classes("w-full")
-                    recipient_input = ui.input("Empfänger (E-Mail Essensanbieter)", value=get_setting("provider_email")).classes("w-full")
+                    with get_db() as conn:
+                        host_input      = ui.input(
+                            "SMTP-Host", value=get_setting(conn, "smtp_host")
+                        ).classes("w-full")
+                        port_input      = ui.input(
+                            "SMTP-Port", value=get_setting(conn, "smtp_port", "587")
+                        ).classes("w-full")
+                        user_input      = ui.input(
+                            "Benutzername (E-Mail Absender)", value=get_setting(conn, "smtp_user")
+                        ).classes("w-full")
+                        password_input  = ui.input(
+                            "Passwort", value=get_setting(conn, "smtp_password"), 
+                            password=True, password_toggle_button=True
+                        ).classes("w-full")
+                        recipient_input = ui.input(
+                            "Empfänger (E-Mail Essensanbieter)", value=get_setting(conn, "provider_email")
+                        ).classes("w-full")
 
                 with ui.card().classes("w-full gap-2"):
                     ui.label("E-Mail-Inhalt").classes("font-medium")
                     ui.label("Platzhalter: {Datum}  {Anzahl}").classes("text-xs text-gray-500")
 
-                    subject_input = ui.input(
-                        "Betreff",
-                        value=get_setting("email_subject", DEFAULT_EMAIL_SUBJECT),
-                    ).classes("w-full")
-                    body_input = ui.textarea(
-                        "Text",
-                        value=get_setting("email_body", DEFAULT_EMAIL_BODY)
-                    ).classes("w-full").props("rows=6")
+                    with get_db() as conn:
+                        subject_input = ui.input(
+                            "Betreff",
+                            value=get_setting(conn, "email_subject", DEFAULT_EMAIL_SUBJECT),
+                        ).classes("w-full")
+                        body_input = ui.textarea(
+                            "Text",
+                            value=get_setting(conn, "email_body", DEFAULT_EMAIL_BODY)
+                        ).classes("w-full").props("rows=6")
 
                     def save_smtp() -> None:
-                        save_setting("smtp_host",       host_input.value.strip())
-                        save_setting("smtp_port",       port_input.value.strip() or "587")
-                        save_setting("smtp_user",       user_input.value.strip())
-                        save_setting("smtp_password",   password_input.value)
-                        save_setting("provider_email",  recipient_input.value.strip())
-                        save_setting("email_subject",   subject_input.value.strip() or DEFAULT_EMAIL_SUBJECT)
-                        save_setting("email_body",      body_input.value or DEFAULT_EMAIL_BODY)
+                        with get_db() as conn:
+                            save_setting(conn, "smtp_host",       host_input.value.strip())
+                            save_setting(conn, "smtp_port",       port_input.value.strip() or "587")
+                            save_setting(conn, "smtp_user",       user_input.value.strip())
+                            save_setting(conn, "smtp_password",   password_input.value)
+                            save_setting(conn, "provider_email",  recipient_input.value.strip())
+                            save_setting(conn, "email_subject",   subject_input.value.strip() or DEFAULT_EMAIL_SUBJECT)
+                            save_setting(conn, "email_body",      body_input.value or DEFAULT_EMAIL_BODY)
                         ui.notify("Einstellungen gespeichert", type="positive")
 
                     ui.button("Speichern", icon="save", on_click=save_smtp).classes("self-end")

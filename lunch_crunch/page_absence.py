@@ -91,8 +91,9 @@ def absence_page() -> None:
 
     def _render_email(total: int) -> tuple[str, str]:
         """Return (subject, body) rendered with today's date and meal count."""
-        subj_tpl = get_setting("email_subject", DEFAULT_EMAIL_SUBJECT)
-        body_tpl = get_setting("email_body", DEFAULT_EMAIL_BODY)
+        with get_db() as conn:
+            subj_tpl = get_setting(conn, "email_subject", DEFAULT_EMAIL_SUBJECT)
+            body_tpl = get_setting(conn, "email_body", DEFAULT_EMAIL_BODY)
         fmt = {"Datum": today.strftime("%d.%m.%Y"), "Anzahl": total}
         return subj_tpl.format(**fmt), body_tpl.format(**fmt)
 
@@ -122,11 +123,12 @@ def absence_page() -> None:
         dialog.open()
 
     def send_order():
-        host      = get_setting("smtp_host")
-        port      = get_setting("smtp_port", "587")
-        user      = get_setting("smtp_user")
-        password  = get_setting("smtp_password")
-        recipient = get_setting("provider_email")
+        with get_db() as conn:
+            host      = get_setting(conn, "smtp_host")
+            port      = get_setting(conn, "smtp_port", "587")
+            user      = get_setting(conn, "smtp_user")
+            password  = get_setting(conn, "smtp_password")
+            recipient = get_setting(conn, "provider_email")
 
         if not all([host, user, password, recipient]):
             ui.notify(

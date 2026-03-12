@@ -24,8 +24,6 @@ from datetime import date
 from nicegui import ui
 from platformdirs import user_config_path, user_log_path
 
-from lunch_crunch.db import get_db
-
 
 APP_NAME = "MahlZahl"
 
@@ -33,10 +31,10 @@ _CONFIG_PATH = user_config_path(APP_NAME.lower(), ensure_exists=True) / "config.
 LOG_PATH     = user_log_path(APP_NAME.lower(), ensure_exists=True) / "lunch_crunch.log"
 
 DEFAULT_EMAIL_SUBJECT = "Mittagessen-Bestellung {Datum}"
-DEFAULT_EMAIL_BODY = """Guten Morgen,\n\n
-    die heutige Mittagessen-Bestellung: {Anzahl} Essen.\n\n
-    Mit freundlichen Grüßen\n
-    Euer Kindergarten-Team"""
+DEFAULT_EMAIL_BODY = """Guten Morgen,\n
+die heutige Mittagessen-Bestellung: {Anzahl} Essen.\n
+Mit freundlichen Grüßen
+Euer Kindergarten-Team"""
 
 
 def weekdays_of_month(year: int, month: int) -> list[date]:
@@ -58,19 +56,17 @@ def get_groups() -> list[str]:
         return []
 
 
-def get_setting(key: str, default: str = "") -> str:
+def get_setting(conn, key: str, default: str = "") -> str:
     """Return the value for *key* from the settings table, or *default* if missing."""
-    with get_db() as conn:
-        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
     return row["value"] if row else default
 
 
-def save_setting(key: str, value: str) -> None:
+def save_setting(conn, key: str, value: str) -> None:
     """Upsert *key* -> *value* in the settings table."""
-    with get_db() as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value)
-        )
+    conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value)
+    )
 
 
 def get_children(conn, active_after: date | str, active_before: date | str, group: str | None = None) -> list:
