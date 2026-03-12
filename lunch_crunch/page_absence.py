@@ -30,6 +30,7 @@ from nicegui import ui
 from lunch_crunch.db import get_db
 from lunch_crunch.common import (
     weekdays_of_month, header, get_setting,
+    needs_setup, save_groups,
     DEFAULT_EMAIL_SUBJECT, DEFAULT_EMAIL_BODY
 )
 from lunch_crunch.absence import absence_grid
@@ -194,4 +195,41 @@ def absence_page() -> None:
             extra_btn=build_send_btn
         )
 
+    if needs_setup():
+        _show_setup_dialog()
+
     rebuild()
+
+
+def _show_setup_dialog() -> None:
+    """Open a first-run dialog to configure group names."""
+    inputs: list[ui.input] = []
+
+    def add_row(value: str = "") -> None:
+        with group_list:
+            row_input = ui.input(placeholder="Gruppenname", value=value)
+            inputs.append(row_input)
+
+    def save() -> None:
+        groups = [i.value.strip() for i in inputs if i.value.strip()]
+        if not groups:
+            ui.notify("Bitte mindestens eine Gruppe eingeben", type="warning")
+            return
+        save_groups(groups)
+        dialog.close()
+        ui.notify("Gruppen gespeichert", type="positive")
+
+    with ui.dialog().props("persistent") as dialog, ui.card().classes("w-full max-w-sm"):
+        ui.label("Willkommen bei MahlZahl").classes("text-xl font-semibold").style("font-family: Antropos;")
+        ui.label(
+            "Bitte die Gruppen des Kindergartens eintragen."
+        ).classes("text-sm text-gray-500")
+        ui.separator()
+        group_list = ui.column().classes("w-full gap-2")
+        add_row()
+        add_row()
+        ui.button("Gruppe hinzufügen", icon="add", on_click=add_row).props("flat dense")
+        ui.separator()
+        ui.button("Speichern", icon="save", on_click=save).props("color=primary").classes("self-end")
+
+    dialog.open()

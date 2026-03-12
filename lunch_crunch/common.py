@@ -21,6 +21,7 @@ import calendar
 import tomllib
 from datetime import date
 
+import tomlkit
 from nicegui import ui
 from platformdirs import user_config_path, user_log_path
 
@@ -47,6 +48,11 @@ def weekdays_of_month(year: int, month: int) -> list[date]:
     ]
 
 
+def needs_setup() -> bool:
+    """Return True if no config file exists yet (first run)."""
+    return not _CONFIG_PATH.exists()
+
+
 def get_groups() -> list[str]:
     """Return the list of group names from the TOML config, or an empty list if not configured."""
     try:
@@ -54,6 +60,13 @@ def get_groups() -> list[str]:
             return tomllib.load(f).get("groups", [])
     except FileNotFoundError:
         return []
+
+
+def save_groups(groups: list[str]) -> None:
+    """Write the group list to the TOML config file."""
+    doc = tomlkit.document()
+    doc.add("groups", groups)
+    _CONFIG_PATH.write_text(tomlkit.dumps(doc), encoding="utf-8")
 
 
 def get_setting(conn, key: str, default: str = "") -> str:
